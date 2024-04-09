@@ -20,12 +20,11 @@ mod trie_builder;
 use std::process::ExitCode;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::io::{BufWriter, Write};
+use std::io::BufWriter;
 use std::fs::File;
 use trie_builder::TrieBuilder;
 
 static DICTIONARY_FILENAME: &'static str = "data/dictionary.bin";
-static LATIN_MAP_FILENAME: &'static str = "data/latin-map.txt";
 
 #[derive(Deserialize)]
 struct Entry {
@@ -71,7 +70,7 @@ fn main() -> ExitCode {
     };
 
     let mut builder = TrieBuilder::new();
-    let mut entries = map.into_values()
+    let entries = map.into_values()
         .flatten()
         .filter(Entry::is_allowed)
         .collect::<Vec::<Entry>>();
@@ -84,27 +83,6 @@ fn main() -> ExitCode {
         builder.into_dictionary(&mut BufWriter::new(file))
     }) {
         eprintln!("{}: {}", DICTIONARY_FILENAME, e);
-        return ExitCode::FAILURE;
-    }
-
-    entries.sort_by(|a, b| {
-        a.shavian.cmp(&b.shavian)
-            .then(b.freq.cmp(&a.freq))
-            .then(a.latin.cmp(&b.latin))
-    });
-
-    if let Err(e) = File::create(LATIN_MAP_FILENAME).and_then(|file| {
-        let mut file = BufWriter::new(file);
-
-        for (i, entry) in entries.iter().enumerate() {
-            if i == 0 || entries[i - 1].shavian != entry.shavian {
-                writeln!(file, "{} {}", entry.shavian, entry.latin)?;
-            }
-        }
-
-        Ok(())
-    }) {
-        eprintln!("{}: {}", LATIN_MAP_FILENAME, e);
         return ExitCode::FAILURE;
     }
 
