@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 mod trie_builder;
+mod bit_writer;
 
 use std::process::ExitCode;
 use serde::Deserialize;
