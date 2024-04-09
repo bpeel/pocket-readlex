@@ -58,9 +58,10 @@ use super::bit_writer::BitWriter;
 
 use std::num::NonZeroUsize;
 
+#[derive(PartialOrd, Ord, Eq, PartialEq)]
 struct Translation {
-    payload_byte: u8,
     value: String,
+    payload_byte: u8,
 }
 
 struct Terminator {
@@ -377,6 +378,12 @@ impl TrieBuilder {
             if let Some(next_child) = self.next_node(&mut entry) {
                 stack.push(entry);
                 stack.push(StackEntry::new(next_child));
+
+                if let NodeData::Terminator(ref mut terminator) =
+                    self.nodes[next_child].data
+                {
+                    terminator.translations.sort_unstable();
+                }
 
                 if let NodeData::Terminator(ref terminator) =
                     self.nodes[next_child].data
