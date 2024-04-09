@@ -51,7 +51,7 @@ fn main() -> ExitCode {
         .collect::<Vec::<Entry>>();
 
     for entry in entries.iter() {
-        builder.add_word(&entry.shavian);
+        builder.add_word(&entry.shavian, &entry.latin, 0);
     }
 
     if let Err(e) = File::create(DICTIONARY_FILENAME).and_then(|file| {
