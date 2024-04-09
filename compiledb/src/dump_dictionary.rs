@@ -18,11 +18,13 @@ mod bit_reader;
 
 use std::process::ExitCode;
 use std::fmt;
+use bit_reader::BitReader;
 
 enum Error {
     UnexpectedEof,
     OffsetTooLong,
     InvalidCharacter,
+    ChildIndexOutOfRange,
 }
 
 impl From<std::str::Utf8Error> for Error {
@@ -37,6 +39,9 @@ impl fmt::Display for Error {
             Error::UnexpectedEof => write!(f, "unexpected EOF"),
             Error::OffsetTooLong => write!(f, "offset too long"),
             Error::InvalidCharacter => write!(f, "invalid character"),
+            Error::ChildIndexOutOfRange => {
+                write!(f, "child index out of range")
+            },
         }
     }
 }
@@ -53,31 +58,27 @@ struct Node {
     sibling_offset: usize,
 }
 
-fn read_node(buf: &[u8]) -> Result<Node, Error> {
-    let mut sibling_offset = 0usize;
-    let mut sibling_offset_len = 0usize;
+fn read_sibling_offset(buf: &[u8]) -> Result<(usize, usize), Error> {
+    let mut offset = 0usize;
+    let mut len = 0usize;
 
-    'load_sibling_offset: {
-        for &byte in buf.iter() {
-            if (sibling_offset_len + 1) * 7 > usize::BITS as usize {
-                return Err(Error::OffsetTooLong);
-            }
-
-            sibling_offset |=
-                (byte as usize & 0x7f) <<
-                (sibling_offset_len * 7);
-            sibling_offset_len += 1;
-
-            if byte & 0x80 == 0 {
-                break 'load_sibling_offset;
-            }
+    for &byte in buf.iter() {
+        if (len + 1) * 7 > usize::BITS as usize {
+            return Err(Error::OffsetTooLong);
         }
 
-        return Err(Error::UnexpectedEof);
+        offset |= (byte as usize & 0x7f) << (len * 7);
+        len += 1;
+
+        if byte & 0x80 == 0 {
+            return Ok((offset, len));
+        }
     }
 
-    let buf = &buf[sibling_offset_len..];
+    return Err(Error::UnexpectedEof);
+}
 
+fn read_character(buf: &[u8]) -> Result<(char, usize), Error> {
     let Some(&byte) = buf.first()
     else {
         return Err(Error::UnexpectedEof);
@@ -92,12 +93,109 @@ fn read_node(buf: &[u8]) -> Result<Node, Error> {
 
     let ch = std::str::from_utf8(ch_data)?.chars().next().unwrap();
 
+    Ok((ch, utf8_len))
+}
+
+fn read_node(buf: &[u8]) -> Result<Node, Error> {
+    let (sibling_offset, sibling_offset_len) = read_sibling_offset(buf)?;
+
+    let (ch, utf8_len) = read_character(&buf[sibling_offset_len..])?;
+
     Ok(Node {
         char_offset: sibling_offset_len,
         data_offset: sibling_offset_len + utf8_len,
         ch,
         sibling_offset,
     })
+}
+
+fn count_siblings(mut buf: &[u8]) -> Result<usize, Error> {
+    let mut count = 1;
+
+    loop {
+        let (sibling_offset, sibling_offset_len) = read_sibling_offset(buf)?;
+
+        if sibling_offset == 0 {
+            break;
+        }
+
+        buf = &buf[sibling_offset + sibling_offset_len..];
+        count += 1;
+    }
+
+    Ok(count)
+}
+
+fn skip_nodes(buf: &[u8], n_nodes: usize) -> Result<usize, Error> {
+    let mut pos = 0;
+
+    for _ in 0..n_nodes {
+        let (sibling_offset, sibling_offset_len) =
+            read_sibling_offset(&buf[pos..])?;
+        pos += sibling_offset_len + sibling_offset;
+    }
+
+    Ok(pos)
+}
+
+fn dump_path(buf: &[u8], pos: usize) -> Result<usize, Error> {
+    let mut node_pos = 0;
+    let mut reader = BitReader::new(&buf[pos..]);
+
+    loop {
+        // Skip the sibling offset
+        let (_, sibling_offset_len) = read_sibling_offset(&buf[node_pos..])?;
+
+        let (ch, ch_len) =
+            read_character(&buf[node_pos + sibling_offset_len..])?;
+
+        if ch == '\0' {
+            break;
+        }
+
+        print!("{}", ch);
+
+        node_pos += sibling_offset_len + ch_len;
+
+        let children = &buf[node_pos..];
+
+        let n_children = count_siblings(children)?;
+
+        let Some(child_index) = reader.read_bits(
+            (u32::BITS - (n_children as u32 - 1).leading_zeros()) as u8
+        ) else {
+            return Err(Error::UnexpectedEof);
+        };
+
+        if child_index as usize >= n_children {
+            return Err(Error::ChildIndexOutOfRange);
+        }
+
+        node_pos += skip_nodes(children, child_index as usize)?;
+    }
+
+    Ok(pos + reader.bytes_consumed())
+}
+
+fn dump_payload(buf: &[u8], mut pos: usize) -> Result<(), Error> {
+    loop {
+        let Some(&payload_byte) = buf.get(pos)
+        else {
+            return Err(Error::UnexpectedEof);
+        };
+
+        print!(" ({}, ", payload_byte & 0x7f);
+
+        pos = dump_path(buf, pos + 1)?;
+
+        print!(")");
+
+        if payload_byte & 0x80 == 0 {
+            break;
+        }
+    }
+
+    Ok(())
 }
 
 fn dump_dictionary(buf: &[u8]) -> Result<(), Error> {
@@ -117,7 +215,11 @@ fn dump_dictionary(buf: &[u8]) -> Result<(), Error> {
         }
 
         if node.ch == '\0' {
-            println!("{}", word);
+            print!("{}", word);
+
+            dump_payload(buf, entry.pos + node.data_offset)?;
+
+            println!();
         } else {
             word.push(node.ch);
 
