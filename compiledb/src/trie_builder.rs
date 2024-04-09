@@ -15,7 +15,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::io::Write;
-use std::cmp::Ordering;
 
 // The trie on disk is stored as a list of trie nodes. A trie node is
 // stored as the following parts:
@@ -38,24 +37,15 @@ use std::cmp::Ordering;
 //
 // If the character is '\0' then it means the letters in the chain of
 // parents leading up to this node are a valid word.
-//
-// Duplicate nodes in the list are removed so the trie forms a
-// directed acyclic graph instead of a tree.
 
 use std::num::NonZeroUsize;
 
 struct Node {
     ch: char,
 
-    // If we consider the trie to be a binary tree with the first
-    // child as one branch and the next sibling as the other, then
-    // this is the number of nodes in the tree starting from this
-    // point. Calculated in a separate pass.
+    // The size in bytes of this node including all of its children
+    // and next siblings. Calculated in a separate pass.
     size: usize,
-
-    // The byte offset to the end of the file. Calculated in a
-    // separate pass.
-    offset: usize,
 
     // Index of the first child if there is one
     first_child: Option<NonZeroUsize>,
@@ -73,14 +63,14 @@ impl Node {
     fn new(ch: char) -> Node {
         Node {
             ch,
-            size: 1,
-            offset: 0,
+            size: ch.len_utf8(),
             first_child: None,
             next_sibling: None,
         }
     }
 }
 
+#[derive(PartialEq, Eq)]
 enum NextNode {
     FirstChild,
     NextSibling,
@@ -215,6 +205,12 @@ impl TrieBuilder {
                     stack.push(StackEntry::new(next_child));
                 },
                 None => {
+                    let node_info = self.node_info(entry.node);
+
+                    self.nodes[entry.node].size +=
+                        n_bytes_for_size(node_info.child_offset)
+                        + n_bytes_for_size(node_info.sibling_offset);
+
                     if let Some(&StackEntry { node: parent, .. })
                         = stack.last()
                     {
@@ -226,103 +222,28 @@ impl TrieBuilder {
         }
     }
 
-    fn sorted_indices(&self) -> Vec<usize> {
-        let mut indices = (0..self.nodes.len()).collect::<Vec<usize>>();
-
-        indices.sort_by(|&a, &b| self.compare_nodes(a, b));
-
-        indices
-    }
-
-    fn node_info(&self, index: usize, next_offset: usize) -> NodeInfo {
+    fn node_info(&self, index: usize) -> NodeInfo {
         let node = &self.nodes[index];
 
         let character_length = node.ch.len_utf8();
 
-        let character_offset = next_offset + character_length;
+        let child_offset = match node.first_child {
+            Some(_) => character_length,
+            None => 0,
+        };
 
-        let child_offset = node.first_child
-            .map(|index| character_offset - self.nodes[index.get()].offset)
-            .unwrap_or(0);
-        let sibling_offset = node.next_sibling
-            .map(|index| character_offset - self.nodes[index.get()].offset)
-            .unwrap_or(0);
+        let sibling_offset = match node.next_sibling {
+            Some(_) => {
+                let child_size = match node.first_child {
+                    Some(index) => self.nodes[index.get()].size,
+                    None => 0,
+                };
+                character_length + child_size
+            },
+            None => 0,
+        };
 
         NodeInfo { child_offset, sibling_offset }
-    }
-
-    fn compare_equal_sized_nodes(
-        &self,
-        a: usize,
-        b: usize,
-    ) -> Ordering {
-        let mut stack = vec![(a, b)];
-
-        while let Some((entry_a, entry_b)) = stack.pop() {
-            let node_a = &self.nodes[entry_a];
-            let node_b = &self.nodes[entry_b];
-
-            match node_a.ch.cmp(&node_b.ch)
-                .then_with(|| {
-                    node_a.first_child.is_some()
-                        .cmp(&node_b.first_child.is_some())
-                })
-                .then_with(|| {
-                    node_a.next_sibling.is_some()
-                        .cmp(&node_b.next_sibling.is_some())
-                })
-            {
-                Ordering::Equal => (),
-                other => return other,
-            }
-
-            if let Some(sibling_a) = node_a.next_sibling {
-                stack.push((
-                    sibling_a.get(),
-                    node_b.next_sibling.unwrap().get(),
-                ));
-            }
-
-            if let Some(child_a) = node_a.first_child {
-                stack.push((
-                    child_a.get(),
-                    node_b.first_child.unwrap().get(),
-                ));
-            }
-        }
-
-        Ordering::Equal
-    }
-
-    fn compare_nodes(&self, a: usize, b: usize) -> Ordering {
-        self.nodes[b].size.cmp(&self.nodes[a].size)
-            .then_with(|| self.compare_equal_sized_nodes(a, b))
-    }
-
-    fn calculate_file_positions(&mut self, sorted_indices: &[usize]) {
-        for (pos, &index) in sorted_indices.iter().enumerate().rev() {
-            // If this node is the same as the next node then just
-            // reuse the same offset
-            let next_offset = if let Some(&next_index) =
-                sorted_indices.get(pos + 1)
-            {
-                if self.compare_nodes(index, next_index).is_eq() {
-                    self.nodes[index].offset = self.nodes[next_index].offset;
-                    continue;
-                }
-
-                self.nodes[next_index].offset
-            } else {
-                0
-            };
-
-            let info = self.node_info(index, next_offset);
-
-            self.nodes[index].offset = next_offset
-                + self.nodes[index].ch.len_utf8()
-                + n_bytes_for_size(info.child_offset)
-                + n_bytes_for_size(info.sibling_offset);
-        }
     }
 
     pub fn into_dictionary(
@@ -334,29 +255,18 @@ impl TrieBuilder {
         self.sort_all_children_by_character();
 
         // Calculate the size of each node in the trie as if it was a
-        // binary tree so that we can be sure to output the nodes
-        // closer te the root first.
+        // binary tree so that we can work out the offsets.
         self.calculate_size();
 
-        // Get the order sorted by descending size and then by the
-        // contents so that we can put the bigger nodes first and
-        // easily detect duplicates.
-        let sorted_indices = self.sorted_indices();
-
-        // Calculate the position of each node in the final file and
-        // detect duplicates.
-        self.calculate_file_positions(&sorted_indices);
-
-        self.write_nodes(&sorted_indices, output)
+        self.write_nodes(output)
     }
 
     fn write_node(
         &self,
         index: usize,
-        next_offset: usize,
         output: &mut impl Write,
     ) -> std::io::Result<()> {
-        let info = self.node_info(index, next_offset);
+        let info = self.node_info(index);
 
         let node = &self.nodes[index];
 
@@ -370,26 +280,19 @@ impl TrieBuilder {
 
     fn write_nodes(
         &self,
-        sorted_indices: &[usize],
         output: &mut impl Write,
     ) -> std::io::Result<()> {
-        for (pos, &index) in sorted_indices.iter().enumerate() {
-            let node = &self.nodes[index];
+        let mut stack = vec![StackEntry::new(0)];
 
-            let next_offset = if let Some(&next_index)
-                = sorted_indices.get(pos + 1)
-            {
-                // If this node is the same as the next one then skip it
-                if self.nodes[next_index].offset == node.offset {
-                    continue;
-                }
+        while let Some(mut entry) = stack.pop() {
+            if entry.next_node == NextNode::FirstChild {
+                self.write_node(entry.node, output)?;
+            }
 
-                self.nodes[next_index].offset
-            } else {
-                0
-            };
-
-            self.write_node(index, next_offset, output)?;
+            if let Some(next_child) = self.next_node(&mut entry) {
+                stack.push(entry);
+                stack.push(StackEntry::new(next_child));
+            }
         }
 
         Ok(())
@@ -461,34 +364,6 @@ mod test {
     }
 
     #[test]
-    fn node_order() {
-        let mut builder = TrieBuilder::new();
-
-        builder.add_word("abc");
-        builder.add_word("bbc");
-        builder.add_word("cbe");
-
-        builder.sort_all_children_by_character();
-        builder.calculate_size();
-
-        assert_eq!(builder.nodes[0].size, 13);
-        assert_eq!(builder.nodes[1].size, 12);
-        assert_eq!(builder.compare_nodes(0, 1), Ordering::Less);
-        assert_eq!(builder.compare_nodes(1, 0), Ordering::Greater);
-        assert_eq!(builder.nodes[2].size, 3);
-        assert_eq!(builder.nodes[2].ch, 'b');
-        assert_eq!(builder.nodes[6].size, 3);
-        assert_eq!(builder.nodes[6].ch, 'b');
-        assert_eq!(builder.compare_nodes(2, 6), Ordering::Equal);
-        assert_eq!(builder.nodes[9].size, 4);
-        assert_eq!(builder.nodes[9].ch, 'c');
-        assert_eq!(builder.nodes[10].size, 3);
-        assert_eq!(builder.nodes[10].ch, 'b');
-        assert_eq!(builder.compare_nodes(2, 10), Ordering::Less);
-        assert_eq!(builder.compare_nodes(10, 2), Ordering::Greater);
-    }
-
-    #[test]
     fn duplicates() {
         let mut builder = TrieBuilder::new();
 
@@ -499,16 +374,19 @@ mod test {
 
         builder.into_dictionary(&mut dictionary).unwrap();
 
-        // There should only be 6 nodes because the “bc” endings
-        // should be combined into one. Each node takes up 3 bytes in
-        // this small example.
-        assert_eq!(dictionary.len(), 6 * 3);
+        // There should be 9 nodes because the “bc” endings shouldn’t
+        // be combined into one. Each node takes up 3 bytes in this
+        // small example.
+        assert_eq!(dictionary.len(), 9 * 3);
 
         assert_eq!(
             &dictionary,
             &[
                 0, 1, b'*',
-                1, 4, b'a',
+                10, 1, b'a',
+                0, 1, b'b',
+                0, 1, b'c',
+                0, 0, b'\0',
                 0, 1, b'b',
                 0, 1, b'b',
                 0, 1, b'c',
