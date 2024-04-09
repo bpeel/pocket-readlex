@@ -30,9 +30,6 @@ use super::bit_writer::BitWriter;
 // • 1-4 bytes of UTF-8 encoded data to represent the character of
 //   this node.
 //
-// The first entry in the list is the root node. Its character value
-// should be ignored.
-//
 // If the char is non-zero then it is followed by a list of child
 // nodes. Otherwise if the character is zero then it means the letters
 // in the chain of parents leading up to this node are a valid word.
@@ -477,7 +474,9 @@ impl TrieBuilder {
         let mut stack = vec![StackEntry::new(0)];
 
         while let Some(mut entry) = stack.pop() {
-            if entry.next_node == NextNode::FirstChild {
+            if entry.next_node == NextNode::FirstChild
+                && entry.node != 0
+            {
                 self.write_node(entry.node, output)?;
             }
 
@@ -565,15 +564,14 @@ mod test {
 
         builder.into_dictionary(&mut dictionary).unwrap();
 
-        // There should be 9 nodes because the “bc” endings shouldn’t
+        // There should be 8 nodes because the “bc” endings shouldn’t
         // be combined into one. Each node takes up 2 bytes in this
         // small example, plus 2 bytes for each terminator.
-        assert_eq!(dictionary.len(), 9 * 2 + 2 * 2);
+        assert_eq!(dictionary.len(), 8 * 2 + 2 * 2);
 
         assert_eq!(
             &dictionary,
             &[
-                0, b'*',
                 9, b'a',
                 0, b'b',
                 0, b'c',

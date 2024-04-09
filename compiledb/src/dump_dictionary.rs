@@ -143,6 +143,20 @@ fn dump_path(buf: &[u8], pos: usize) -> Result<usize, Error> {
     let mut reader = BitReader::new(&buf[pos..]);
 
     loop {
+        let n_children = count_siblings(&buf[node_pos..])?;
+
+        let Some(child_index) = reader.read_bits(
+            (u32::BITS - (n_children as u32 - 1).leading_zeros()) as u8
+        ) else {
+            return Err(Error::UnexpectedEof);
+        };
+
+        if child_index as usize >= n_children {
+            return Err(Error::ChildIndexOutOfRange);
+        }
+
+        node_pos += skip_nodes(&buf[node_pos..], child_index as usize)?;
+
         // Skip the sibling offset
         let (_, sibling_offset_len) = read_sibling_offset(&buf[node_pos..])?;
 
@@ -156,22 +170,6 @@ fn dump_path(buf: &[u8], pos: usize) -> Result<usize, Error> {
         print!("{}", ch);
 
         node_pos += sibling_offset_len + ch_len;
-
-        let children = &buf[node_pos..];
-
-        let n_children = count_siblings(children)?;
-
-        let Some(child_index) = reader.read_bits(
-            (u32::BITS - (n_children as u32 - 1).leading_zeros()) as u8
-        ) else {
-            return Err(Error::UnexpectedEof);
-        };
-
-        if child_index as usize >= n_children {
-            return Err(Error::ChildIndexOutOfRange);
-        }
-
-        node_pos += skip_nodes(children, child_index as usize)?;
     }
 
     Ok(pos + reader.bytes_consumed())
