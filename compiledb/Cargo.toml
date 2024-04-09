@@ -5,6 +5,15 @@ edition = "2021"
 license = "GPL-3.0-or-later"
 description = "A utility to compile the data for Pocket Readlex"
 repository = "https://github.com/bpeel/pocket-readlex"
+default-run = "compiledb"
+
+[[bin]]
+name = "compiledb"
+path = "src/compiledb.rs"
+
+[[bin]]
+name = "dump-dictionary"
+path = "src/dump_dictionary.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
