@@ -23,8 +23,18 @@ use std::collections::HashMap;
 use std::io::BufWriter;
 use std::fs::File;
 use trie_builder::TrieBuilder;
+use clap::Parser;
+use std::ffi::OsString;
+use std::path::Path;
 
-static DICTIONARY_FILENAME: &'static str = "data/dictionary.bin";
+#[derive(Parser)]
+#[command(name = "CompileDb")]
+struct Cli {
+    #[arg(short, long, value_name = "FILE")]
+    input: OsString,
+    #[arg(short, long, value_name = "FILE")]
+    output: OsString,
+}
 
 #[derive(Deserialize)]
 struct Entry {
@@ -36,11 +46,23 @@ struct Entry {
 
 type ReadLexMap = HashMap<String, Vec<Entry>>;
 
+fn load_readlex<P: AsRef<Path>>(path: P) -> Result<ReadLexMap, String> {
+    match File::open(path) {
+        Ok(file) => {
+            serde_json::from_reader::<_, ReadLexMap>(file)
+                .map_err(|e| format!("{}", e))
+        },
+        Err(e) => Err(format!("{}", e))
+    }
+}
+
 fn main() -> ExitCode {
-    let map = match serde_json::from_reader::<_, ReadLexMap>(std::io::stdin()) {
+    let cli = Cli::parse();
+
+    let map = match load_readlex(&cli.input) {
         Ok(m) => m,
         Err(e) => {
-            eprintln!("{}", e);
+            eprintln!("{}: {}", cli.input.to_string_lossy(), e);
             return ExitCode::FAILURE;
         },
     };
@@ -54,10 +76,10 @@ fn main() -> ExitCode {
         builder.add_word(&entry.shavian, &entry.latin, 0);
     }
 
-    if let Err(e) = File::create(DICTIONARY_FILENAME).and_then(|file| {
+    if let Err(e) = File::create(&cli.output).and_then(|file| {
         builder.into_dictionary(&mut BufWriter::new(file))
     }) {
-        eprintln!("{}: {}", DICTIONARY_FILENAME, e);
+        eprintln!("{}: {}", cli.output.to_string_lossy(), e);
         return ExitCode::FAILURE;
     }
 
