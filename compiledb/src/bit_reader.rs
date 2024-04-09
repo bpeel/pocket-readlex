@@ -18,6 +18,7 @@ pub struct BitReader<'a> {
     slice: &'a [u8],
     queue: u8,
     queue_length: u8,
+    bytes_consumed: usize,
 }
 
 impl<'a> BitReader<'a> {
@@ -26,12 +27,13 @@ impl<'a> BitReader<'a> {
             slice,
             queue: 0,
             queue_length: 0,
+            bytes_consumed: 0,
         }
     }
 
     fn read_byte(&mut self) -> Option<u8> {
-        let &byte = self.slice.first()?;
-        self.slice = &self.slice[1..];
+        let &byte = self.slice.get(self.bytes_consumed)?;
+        self.bytes_consumed += 1;
         Some(byte)
     }
 
@@ -61,6 +63,10 @@ impl<'a> BitReader<'a> {
 
         Some(result)
     }
+
+    pub fn bytes_consumed(&self) -> usize {
+        self.bytes_consumed
+    }
 }
 
 #[cfg(test)]
@@ -81,6 +87,7 @@ mod test {
         assert_eq!(result, magic);
 
         assert!(reader.read_bits(1).is_none());
+        assert_eq!(reader.bytes_consumed(), u32::BITS as usize / 8);
     }
 
     #[test]
@@ -90,6 +97,7 @@ mod test {
 
         for i in 0..magic.len() {
             assert_eq!(magic[i] as u32, reader.read_bits(8).unwrap());
+            assert_eq!(reader.bytes_consumed(), i + 1);
         }
 
         assert!(reader.read_bits(1).is_none());
@@ -101,10 +109,15 @@ mod test {
         let mut reader = BitReader::new(&magic[..]);
 
         assert_eq!(reader.read_bits(4).unwrap(), 0x2);
+        assert_eq!(reader.bytes_consumed(), 1);
         assert_eq!(reader.read_bits(32).unwrap(), 0xa7856341);
+        assert_eq!(reader.bytes_consumed(), 5);
         assert_eq!(reader.read_bits(4).unwrap(), 0x9);
+        assert_eq!(reader.bytes_consumed(), 5);
         assert_eq!(reader.read_bits(12).unwrap(), 0xebc);
+        assert_eq!(reader.bytes_consumed(), 7);
         assert_eq!(reader.read_bits(12).unwrap(), 0x03d);
+        assert_eq!(reader.bytes_consumed(), 8);
         assert!(reader.read_bits(1).is_none());
     }
 }
