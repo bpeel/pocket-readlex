@@ -19,18 +19,16 @@ use std::io::Write;
 // The trie on disk is stored as a list of trie nodes. A trie node is
 // stored as the following parts:
 //
-// • A byte offset to move to the next sibling, or zero if there is no
-//   next sibling.
-// • A byte offset to move to the first child, or zero if there are no
-//   children of this node.
-// • 1-6 bytes of UTF-8 encoded data to represent the character of
+// • A number stored with a variable length. Each byte represents 7
+//   more bits of data where the first byte has the least-significant
+//   bits. The most significant bit of each byte indicates whether
+//   more bits follow. The first bit of the resulting number indicates
+//   whether this node has children. The rest of the bits are a byte
+//   offset to the next sibling, or zero if there are no more
+//   siblings. The offset is calculated from the point between this
+//   number and the following character data.
+// • 1-4 bytes of UTF-8 encoded data to represent the character of
 //   this node.
-//
-// The two byte offsets are always positive and count from the point
-// between the offsets and the character data. The number is stored as
-// a variable-length integer. Each byte contains the next
-// most-significant 7 bits. The topmost bit of the byte determines
-// whether there are more bits to follow.
 //
 // The first entry in the list is the root node. Its character value
 // should be ignored.
@@ -51,12 +49,6 @@ struct Node {
     first_child: Option<NonZeroUsize>,
     // Index of the next sibling if there is one
     next_sibling: Option<NonZeroUsize>,
-}
-
-// Trie node info calculated on the fly
-struct NodeInfo {
-    child_offset: usize,
-    sibling_offset: usize,
 }
 
 impl Node {
@@ -205,11 +197,10 @@ impl TrieBuilder {
                     stack.push(StackEntry::new(next_child));
                 },
                 None => {
-                    let node_info = self.node_info(entry.node);
+                    let node_data_number = self.node_data_number(entry.node);
 
                     self.nodes[entry.node].size +=
-                        n_bytes_for_size(node_info.child_offset)
-                        + n_bytes_for_size(node_info.sibling_offset);
+                        n_bytes_for_size(node_data_number);
 
                     if let Some(&StackEntry { node: parent, .. })
                         = stack.last()
@@ -222,15 +213,8 @@ impl TrieBuilder {
         }
     }
 
-    fn node_info(&self, index: usize) -> NodeInfo {
+    fn node_data_number(&self, index: usize) -> usize {
         let node = &self.nodes[index];
-
-        let character_length = node.ch.len_utf8();
-
-        let child_offset = match node.first_child {
-            Some(_) => character_length,
-            None => 0,
-        };
 
         let sibling_offset = match node.next_sibling {
             Some(_) => {
@@ -238,12 +222,18 @@ impl TrieBuilder {
                     Some(index) => self.nodes[index.get()].size,
                     None => 0,
                 };
-                character_length + child_size
+                node.ch.len_utf8() + child_size
             },
             None => 0,
         };
 
-        NodeInfo { child_offset, sibling_offset }
+        let mut data_number = sibling_offset << 1;
+
+        if node.first_child.is_some() {
+            data_number |= 1;
+        }
+
+        data_number
     }
 
     pub fn into_dictionary(
@@ -266,12 +256,11 @@ impl TrieBuilder {
         index: usize,
         output: &mut impl Write,
     ) -> std::io::Result<()> {
-        let info = self.node_info(index);
+        let data_number = self.node_data_number(index);
 
         let node = &self.nodes[index];
 
-        write_offset(info.sibling_offset, output)?;
-        write_offset(info.child_offset, output)?;
+        write_offset(data_number, output)?;
 
         let mut ch_utf8 = [0u8; 4];
 
@@ -375,22 +364,22 @@ mod test {
         builder.into_dictionary(&mut dictionary).unwrap();
 
         // There should be 9 nodes because the “bc” endings shouldn’t
-        // be combined into one. Each node takes up 3 bytes in this
+        // be combined into one. Each node takes up 2 bytes in this
         // small example.
-        assert_eq!(dictionary.len(), 9 * 3);
+        assert_eq!(dictionary.len(), 9 * 2);
 
         assert_eq!(
             &dictionary,
             &[
-                0, 1, b'*',
-                10, 1, b'a',
-                0, 1, b'b',
-                0, 1, b'c',
-                0, 0, b'\0',
-                0, 1, b'b',
-                0, 1, b'b',
-                0, 1, b'c',
-                0, 0, b'\0',
+                1, b'*',
+                15, b'a',
+                1, b'b',
+                1, b'c',
+                0, b'\0',
+                1, b'b',
+                1, b'b',
+                1, b'c',
+                0, b'\0',
             ],
         );
     }
