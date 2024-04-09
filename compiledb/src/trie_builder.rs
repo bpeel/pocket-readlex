@@ -20,22 +20,22 @@ use super::bit_writer::BitWriter;
 // The trie on disk is stored as a list of trie nodes. A trie node is
 // stored as the following parts:
 //
-// • A number stored with a variable length. Each byte represents 7
-//   more bits of data where the first byte has the least-significant
-//   bits. The most significant bit of each byte indicates whether
-//   more bits follow. The first bit of the resulting number indicates
-//   whether this node has children. The rest of the bits are a byte
-//   offset to the next sibling, or zero if there are no more
-//   siblings. The offset is calculated from the point between this
-//   number and the following character data.
+// • An offset to the next sibling stored as a variable-length number.
+//   Each byte represents 7 more bits of data where the first byte has
+//   the least-significant bits. The most significant bit of each byte
+//   indicates whether more bits follow. The offset will be zero if
+//   there are no more siblings. The offset is calculated from the
+//   point between this number and the following character data.
+//
 // • 1-4 bytes of UTF-8 encoded data to represent the character of
 //   this node.
 //
 // The first entry in the list is the root node. Its character value
 // should be ignored.
 //
-// If the character is '\0' then it means the letters in the chain of
-// parents leading up to this node are a valid word.
+// If the char is non-zero then it is followed by a list of child
+// nodes. Otherwise if the character is zero then it means the letters
+// in the chain of parents leading up to this node are a valid word.
 //
 // After the 0 is a variable-length list of translations of the word.
 // Each translation is stored as follows:
@@ -292,10 +292,11 @@ impl TrieBuilder {
                     stack.push(StackEntry::new(next_child));
                 },
                 None => {
-                    let node_data_number = self.node_data_number(entry.node);
+                    let sibling_offset_value =
+                        self.sibling_offset_value(entry.node);
 
                     self.nodes[entry.node].size +=
-                        n_bytes_for_size(node_data_number);
+                        n_bytes_for_size(sibling_offset_value);
 
                     if let NodeData::Terminator(ref terminator) =
                         self.nodes[entry.node].data
@@ -391,10 +392,10 @@ impl TrieBuilder {
         }
     }
 
-    fn node_data_number(&self, index: usize) -> usize {
+    fn sibling_offset_value(&self, index: usize) -> usize {
         let node = &self.nodes[index];
 
-        let sibling_offset = match node.next_sibling {
+        match node.next_sibling {
             Some(_) => {
                 let data_size = match node.data {
                     NodeData::Terminator(ref terminator) => {
@@ -408,15 +409,7 @@ impl TrieBuilder {
                 node.data.ch().len_utf8() + data_size
             },
             None => 0,
-        };
-
-        let mut data_number = sibling_offset << 1;
-
-        if node.first_child.is_some() {
-            data_number |= 1;
         }
-
-        data_number
     }
 
     pub fn into_dictionary(
@@ -441,11 +434,11 @@ impl TrieBuilder {
         index: usize,
         output: &mut impl Write,
     ) -> std::io::Result<()> {
-        let data_number = self.node_data_number(index);
+        let sibling_offset_value = self.sibling_offset_value(index);
 
         let node = &self.nodes[index];
 
-        write_offset(data_number, output)?;
+        write_offset(sibling_offset_value, output)?;
 
         let mut ch_utf8 = [0u8; 4];
 
@@ -573,15 +566,15 @@ mod test {
         assert_eq!(
             &dictionary,
             &[
-                1, b'*',
-                19, b'a',
-                1, b'b',
-                1, b'c',
+                0, b'*',
+                9, b'a',
+                0, b'b',
+                0, b'c',
                 0, b'\0',
                 0x7e, 1,
-                1, b'b',
-                1, b'b',
-                1, b'c',
+                0, b'b',
+                0, b'b',
+                0, b'c',
                 0, b'\0',
                 0x7e, 0,
             ],
