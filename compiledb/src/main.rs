@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-mod shavian;
 mod trie_builder;
 
 use std::process::ExitCode;
@@ -32,30 +31,6 @@ struct Entry {
     latin: String,
     #[serde(rename = "Shaw")]
     shavian: String,
-    pos: String,
-    var: String,
-    freq: u32,
-}
-
-static BANNED_POSITIONS: [&'static str; 1] = [
-    "NP0",
-];
-
-static ALLOWED_VARIATIONS: [&'static str; 1] = [
-    "RRP",
-];
-
-impl Entry {
-    fn is_allowed(&self) -> bool {
-        // Allow only shavian letters, ie, no punctuation
-        self.shavian.chars().all(|ch| shavian::is_shavian(ch))
-        // Must be five letters long
-            && self.shavian.chars().count() == 5
-        // No banned positions
-            && BANNED_POSITIONS.iter().find(|&p| p == &self.pos).is_none()
-        // Only certain variations allowed
-            && ALLOWED_VARIATIONS.iter().find(|&v| v == &self.var).is_some()
-    }
 }
 
 type ReadLexMap = HashMap<String, Vec<Entry>>;
@@ -72,7 +47,6 @@ fn main() -> ExitCode {
     let mut builder = TrieBuilder::new();
     let entries = map.into_values()
         .flatten()
-        .filter(Entry::is_allowed)
         .collect::<Vec::<Entry>>();
 
     for entry in entries.iter() {
