@@ -17,7 +17,9 @@
 use std::io::Write;
 use super::bit_writer::BitWriter;
 
-// The trie on disk is stored as a list of trie nodes. A trie node is
+// At the beginning of a trie file stored on disk there are 4 bytes
+// representing the length of the rest of the file as a little-endian
+// int. The rest of the file a list of trie nodes. A trie node is
 // stored as the following parts:
 //
 // • An offset to the next sibling stored as a variable-length number.
@@ -430,7 +432,17 @@ impl TrieBuilder {
         // binary tree so that we can work out the offsets.
         self.calculate_size();
 
+        self.write_file_size(output)?;
+
         self.write_nodes(output)
+    }
+
+    fn write_file_size(&self, output: &mut impl Write) -> std::io::Result<()> {
+        let size = self.nodes[0].size -
+            n_bytes_for_size(self.sibling_offset_value(0)) -
+            self.nodes[0].data.ch().len_utf8();
+        let size_bytes = (size as u32).to_le_bytes();
+        output.write_all(&size_bytes[..])
     }
 
     fn write_node(
@@ -567,11 +579,12 @@ mod test {
         // There should be 8 nodes because the “bc” endings shouldn’t
         // be combined into one. Each node takes up 2 bytes in this
         // small example, plus 2 bytes for each terminator.
-        assert_eq!(dictionary.len(), 8 * 2 + 2 * 2);
+        assert_eq!(dictionary.len(), 4 + 8 * 2 + 2 * 2);
 
         assert_eq!(
             &dictionary,
             &[
+                22, 0x00, 0x00, 0x00,
                 9, b'a',
                 0, b'b',
                 0, b'c',

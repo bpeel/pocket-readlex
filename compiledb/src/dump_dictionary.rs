@@ -22,6 +22,7 @@ use bit_reader::BitReader;
 
 enum Error {
     UnexpectedEof,
+    InvalidLengthHeader,
     OffsetTooLong,
     InvalidCharacter,
     ChildIndexOutOfRange,
@@ -37,6 +38,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Error::UnexpectedEof => write!(f, "unexpected EOF"),
+            Error::InvalidLengthHeader => write!(f, "invalid length header"),
             Error::OffsetTooLong => write!(f, "offset too long"),
             Error::InvalidCharacter => write!(f, "invalid character"),
             Error::ChildIndexOutOfRange => {
@@ -139,7 +141,7 @@ fn skip_nodes(buf: &[u8], n_nodes: usize) -> Result<usize, Error> {
 }
 
 fn dump_path(buf: &[u8], pos: usize) -> Result<usize, Error> {
-    let mut node_pos = 0;
+    let mut node_pos = 4;
     let mut reader = BitReader::new(&buf[pos..]);
 
     loop {
@@ -196,9 +198,25 @@ fn dump_payload(buf: &[u8], mut pos: usize) -> Result<(), Error> {
     Ok(())
 }
 
+fn check_length(buf: &[u8]) -> Result<(), Error> {
+    if buf.len() < 4 {
+        return Err(Error::UnexpectedEof);
+    }
+
+    let len = u32::from_le_bytes(buf[0..4].try_into().unwrap());
+
+    if len as usize != buf.len() - 4 {
+        Err(Error::InvalidLengthHeader)
+    } else {
+        Ok(())
+    }
+}
+
 fn dump_dictionary(buf: &[u8]) -> Result<(), Error> {
+    check_length(buf)?;
+
     let mut word = String::new();
-    let mut stack = vec![StackEntry { word_length: 0, pos: 0 }];
+    let mut stack = vec![StackEntry { word_length: 0, pos: 4 }];
 
     while let Some(entry) = stack.pop() {
         word.truncate(entry.word_length);
