@@ -1,0 +1,300 @@
+// Pocket ReadLex – An offline app for ReadLex
+// Copyright (C) 2012, 2024  Neil Roberts
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+package uk.co.busydoingnothing.pocketrl;
+
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.io.IOException;
+
+class TrieStack
+{
+    private int[] data;
+    private int size;
+
+    public TrieStack()
+    {
+        this.data = new int[64];
+        this.size = 0;
+    }
+
+    public int getTopPos()
+    {
+        return data[size - 2];
+    }
+
+    public int getTopStringLength()
+    {
+        return data[size - 1];
+    }
+
+    public void pop()
+    {
+        size -= 2;
+    }
+
+    public boolean isEmpty()
+    {
+        return size <= 0;
+    }
+
+    public void push(int pos,
+                     int stringLength)
+    {
+        // If there isn’t enough space in the array then we’ll double
+        // its size. The size of the array is initially chosen to be
+        // quite large so this should probably never happen.
+        if (size + 2 >= data.length) {
+            int[] newData = new int[data.length * 2];
+            System.arraycopy(data, 0, newData, 0, data.length);
+            data = newData;
+        }
+
+        data[size++] = pos;
+        data[size++] = stringLength;
+    }
+}
+
+public class Trie
+{
+    private byte data[];
+
+    private static void readAll(InputStream stream,
+                                byte[] data,
+                                int offset,
+                                int length)
+        throws IOException
+    {
+        while (length > 0) {
+            int got = stream.read(data, offset, length);
+
+            if (got == -1) {
+                throw new IOException("Unexpected end of file");
+            } else {
+                offset += got;
+                length -= got;
+            }
+        }
+    }
+
+    private static final int extractInt(byte[] data,
+                                        int offset)
+    {
+        return (((data[offset + 0] & 0xff) << 0) |
+                ((data[offset + 1] & 0xff) << 8) |
+                ((data[offset + 2] & 0xff) << 16) |
+                ((data[offset + 3] & 0xff) << 24));
+    }
+
+    public Trie(InputStream dataStream)
+        throws IOException
+    {
+        byte lengthBytes[] = new byte[4];
+
+        // Read 4 bytes to get the length of the file
+        readAll(dataStream, lengthBytes, 0, lengthBytes.length);
+        int length = extractInt(lengthBytes, 0);
+
+        // Create a byte array big enough to hold the rest of the file
+        data = new byte[length];
+
+        // Read the rest of the data
+        readAll(dataStream, data, 0, length);
+    }
+
+    // Gets the number of bytes needed for a UTF-8 sequence which
+    // begins with the given byte.
+    private static int getUtf8Length(byte firstByte)
+    {
+        if (firstByte >= 0)
+            return 1;
+        if ((firstByte & 0xe0) == 0xc0)
+            return 2;
+        if ((firstByte & 0xf0) == 0xe0)
+            return 3;
+        if ((firstByte & 0xf8) == 0xf0)
+            return 4;
+        if ((firstByte & 0xfc) == 0xf8)
+            return 5;
+
+        return 6;
+    }
+
+    private int getUtf8Character(int offset)
+    {
+        byte firstByte = data[offset];
+
+        if (firstByte >= 0)
+            return firstByte;
+
+        int nExtraBytes;
+        int value;
+
+        if ((firstByte & 0xe0) == 0xc0) {
+            nExtraBytes = 1;
+            value = firstByte & 0x1f;
+        } else if ((firstByte & 0xf0) == 0xe0) {
+            nExtraBytes = 2;
+            value = firstByte & 0x0f;
+        } else {
+            nExtraBytes = 3;
+            value = firstByte & 0x07;
+        }
+
+        for (int i = 0; i < nExtraBytes; i++) {
+            value = (value << 6) | (data[offset + 1 + i] & 0x3f);
+        }
+
+        return value;
+    }
+
+    private int findSiblingForCharacter(int ch, int pos) {
+        while (true) {
+            int siblingOffset = 0;
+
+            for (int i = 0; ; i++) {
+                siblingOffset |= (data[pos] & 0x7f) << (i * 7);
+
+                if ((data[pos++] & 0x80) == 0) {
+                    break;
+                }
+            }
+
+            int nodeCh = getUtf8Character(pos);
+
+            if (nodeCh == ch) {
+                // We find the character, return the position of the first child
+                return pos + getUtf8Length(data[pos]);
+            } else {
+                // Character doesn’t match, need to try the next
+                // sibling. If there isn’t a next sibling then this
+                // prefix isn’t in the trie.
+                if (siblingOffset == 0)
+                    return -1;
+
+                pos += siblingOffset;
+            }
+        }
+    }
+
+    // Walks through the trie using the path for the given prefix. If
+    // the path is found then it returns the offset of the first child
+    // after the prefix. Otherwise it returns -1.
+    private int findPrefix(String prefix)
+    {
+        int pos = 0;
+
+        for (int stringPos = 0;
+             stringPos < prefix.length();
+             stringPos = prefix.offsetByCodePoints(stringPos, 1)) {
+            int ch = prefix.codePointAt(stringPos);
+
+            pos = findSiblingForCharacter(ch, pos);
+
+            if (pos == -1)
+                return -1;
+        }
+
+        return pos;
+    }
+
+    // Searches the trie for words that begin with ‘prefix’. The
+    // results array is filled with the results. If more results are
+    // available than the length of the results array then they are
+    // ignored. If fewer are available then the remainder of the array
+    // is untouched. The method returns the number of results found.
+    public int search(String prefix,
+                      String[] results)
+    {
+        int afterPrefix = findPrefix(prefix);
+
+        if (afterPrefix == -1) {
+            return 0;
+        }
+
+        StringBuilder stringBuf = new StringBuilder(prefix);
+
+        // afterPrefix is now pointing at the first child after the
+        // prefix. This node and all of its siblings are therefore
+        // extensions of the prefix. We can now depth-first search the
+        // tree to get them all in sorted order.
+
+        TrieStack stack = new TrieStack();
+
+        stack.push(afterPrefix, stringBuf.length());
+
+        int numResults = 0;
+
+        while (numResults < results.length && !stack.isEmpty()) {
+            int pos = stack.getTopPos();
+
+            stringBuf.setLength(stack.getTopStringLength());
+
+            stack.pop();
+
+            int siblingOffset = 0;
+
+            for (int i = 0; ; i++) {
+                siblingOffset |= (data[pos] & 0x7f) << (i * 7);
+
+                if ((data[pos++] & 0x80) == 0) {
+                    break;
+                }
+            }
+
+            int nodeCh = getUtf8Character(pos);
+
+            // If there is a sibling then make sure we continue from
+            // that after we’ve descended through the children of this
+            // node.
+            if (siblingOffset > 0) {
+                stack.push(pos + siblingOffset, stringBuf.length());
+            }
+
+            if (nodeCh == 0) {
+                // This is a complete word so add it to the results
+                results[numResults++] = stringBuf.toString();
+            } else {
+                // This isn’t the end so descend into the child nodes
+                stringBuf.appendCodePoint(nodeCh);
+                stack.push(pos + getUtf8Length(data[pos]), stringBuf.length());
+            }
+        }
+
+        return numResults;
+    }
+
+    // Test program
+    public static void main(String[] args)
+        throws IOException
+    {
+        if (args.length != 2) {
+            System.err.println("Usage: java Trie <index> <prefix>");
+            System.exit(1);
+        }
+
+        FileInputStream inputStream = new FileInputStream(args[0]);
+        Trie trie = new Trie(inputStream);
+
+        String result[] = new String[100];
+
+        int numResults = trie.search(args[1], result);
+
+        for (int i = 0; i < numResults; i++) {
+            System.out.println(result[i]);
+        }
+    }
+}
