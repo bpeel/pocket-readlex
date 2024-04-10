@@ -211,13 +211,119 @@ public class Trie
         return pos;
     }
 
+    private int countSiblings(int pos)
+    {
+        int nSiblings = 1;
+
+        while (true) {
+            int siblingOffset = 0;
+
+            for (int i = 0; ; i++) {
+                siblingOffset |= (data[pos] & 0x7f) << (i * 7);
+
+                if ((data[pos++] & 0x80) == 0) {
+                    break;
+                }
+            }
+
+            if (siblingOffset == 0)
+                break;
+
+            pos += siblingOffset;
+            nSiblings++;
+        }
+
+        return nSiblings;
+    }
+
+    private int skipSiblings(int pos, int skips)
+    {
+        for (int skipNum = 0; skipNum < skips; skipNum++) {
+            int siblingOffset = 0;
+
+            for (int i = 0; ; i++) {
+                siblingOffset |= (data[pos] & 0x7f) << (i * 7);
+
+                if ((data[pos++] & 0x80) == 0) {
+                    break;
+                }
+            }
+
+            if (siblingOffset == 0)
+                break;
+
+            pos += siblingOffset;
+        }
+
+        return pos;
+    }
+
+    private void walkPath(BitReader reader,
+                          StringBuilder stringBuf)
+    {
+        int pos = 0;
+
+        while (true) {
+            int nSiblings = countSiblings(pos);
+            int nBits = 32 - Integer.numberOfLeadingZeros(nSiblings - 1);
+            int skips = reader.readBits(nBits);
+
+            pos = skipSiblings(pos, skips);
+
+            // Skip the sibling offset
+            for (int i = 0; ; i++) {
+                if ((data[pos++] & 0x80) == 0) {
+                    break;
+                }
+            }
+
+            int nodeCh = getUtf8Character(pos);
+
+            if (nodeCh == 0) {
+                break;
+            }
+
+            stringBuf.appendCodePoint(nodeCh);
+
+            pos += getUtf8Length(data[pos]);
+        }
+    }
+
+    private int getTranslations(SearchResult[] results,
+                                int numResults,
+                                String word,
+                                int pos)
+    {
+        StringBuilder stringBuf = new StringBuilder();
+        BitReader reader = new BitReader(data);
+
+        while (numResults < results.length) {
+            byte payload = data[pos];
+
+            stringBuf.setLength(0);
+
+            reader.resetPosition(pos + 1);
+            walkPath(reader, stringBuf);
+            pos += 1 + reader.getBytesConsumed();
+
+            results[numResults++] = new SearchResult(word,
+                                                     stringBuf.toString(),
+                                                     (byte) (payload & 0x7f));
+
+            if ((payload & 0x80) == 0)
+                break;
+        }
+
+        return numResults;
+    }
+
     // Searches the trie for words that begin with ‘prefix’. The
     // results array is filled with the results. If more results are
     // available than the length of the results array then they are
     // ignored. If fewer are available then the remainder of the array
     // is untouched. The method returns the number of results found.
     public int search(String prefix,
-                      String[] results)
+                      SearchResult[] results)
     {
         int afterPrefix = findPrefix(prefix);
 
@@ -264,13 +370,19 @@ public class Trie
                 stack.push(pos + siblingOffset, stringBuf.length());
             }
 
+            int dataPos = pos + getUtf8Length(data[pos]);
+
             if (nodeCh == 0) {
-                // This is a complete word so add it to the results
-                results[numResults++] = stringBuf.toString();
+                // This is a complete word so add all of the
+                // translations to the results
+                numResults = getTranslations(results,
+                                             numResults,
+                                             stringBuf.toString(),
+                                             dataPos);
             } else {
                 // This isn’t the end so descend into the child nodes
                 stringBuf.appendCodePoint(nodeCh);
-                stack.push(pos + getUtf8Length(data[pos]), stringBuf.length());
+                stack.push(dataPos, stringBuf.length());
             }
         }
 
@@ -289,12 +401,17 @@ public class Trie
         FileInputStream inputStream = new FileInputStream(args[0]);
         Trie trie = new Trie(inputStream);
 
-        String result[] = new String[100];
+        SearchResult result[] = new SearchResult[100];
 
         int numResults = trie.search(args[1], result);
 
         for (int i = 0; i < numResults; i++) {
-            System.out.println(result[i]);
+            System.out.println(result[i].getWord() +
+                               " (" +
+                               result[i].getType() +
+                               ", " +
+                               result[i].getTranslation() +
+                               ")");
         }
     }
 }
