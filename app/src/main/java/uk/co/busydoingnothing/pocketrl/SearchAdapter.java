@@ -97,20 +97,26 @@ public class SearchAdapter extends BaseAdapter
     @Override
     public View getView(int position, View convertView, ViewGroup parent)
     {
-        TextView tv;
+        View layout;
 
         if (convertView == null) {
             LayoutInflater layoutInflater = LayoutInflater.from(context);
             int id;
-            id = android.R.layout.simple_list_item_1;
-            tv = (TextView) layoutInflater.inflate(id, parent, false);
+            id = R.layout.search_item;
+            layout = layoutInflater.inflate(id, parent, false);
         } else {
-            tv = (TextView) convertView;
+            layout = convertView;
         }
 
-        tv.setText(getItem(position).getWord());
+        SearchResult result = getItem(position);
 
-        return tv;
+        TextView word = layout.findViewById(R.id.word);
+        word.setText(result.getWord());
+
+        TextView translation = layout.findViewById(R.id.translation);
+        translation.setText(result.getTranslation());
+
+        return layout;
     }
 
     @Override
