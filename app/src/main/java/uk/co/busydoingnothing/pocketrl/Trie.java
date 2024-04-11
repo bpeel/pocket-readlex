@@ -193,14 +193,15 @@ public class Trie
     // Walks through the trie using the path for the given prefix. If
     // the path is found then it returns the offset of the first child
     // after the prefix. Otherwise it returns -1.
-    private int findPrefix(String prefix)
+    private int findPrefix(CharSequence prefix)
     {
         int pos = 0;
+        int length = prefix.length();
 
         for (int stringPos = 0;
-             stringPos < prefix.length();
-             stringPos = prefix.offsetByCodePoints(stringPos, 1)) {
-            int ch = prefix.codePointAt(stringPos);
+             stringPos < length;
+             stringPos = Character.offsetByCodePoints(prefix, stringPos, 1)) {
+            int ch = Character.codePointAt(prefix, stringPos);
 
             pos = findSiblingForCharacter(ch, pos);
 
@@ -322,7 +323,7 @@ public class Trie
     // available than the length of the results array then they are
     // ignored. If fewer are available then the remainder of the array
     // is untouched. The method returns the number of results found.
-    public int search(String prefix,
+    public int search(CharSequence prefix,
                       SearchResult[] results)
     {
         int afterPrefix = findPrefix(prefix);
