@@ -116,6 +116,9 @@ public class SearchAdapter extends BaseAdapter
         TextView translation = layout.findViewById(R.id.translation);
         translation.setText(result.getTranslation());
 
+        TextView wordType = layout.findViewById(R.id.word_type);
+        wordType.setText(PartOfSpeech.name(result.getType()));
+
         return layout;
     }
 
