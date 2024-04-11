@@ -23,6 +23,7 @@
   <string name="search">Search</string>
   <string name="no_results">No results found</string>
   <string name="type_to_filter">Type something to search</string>
+  <string name="context_menu_search">Search ReadLex</string>
   <string name="about_message">
 <b>Pocket ReadLex @VERSION@</b>\n
 \nCopyright © 2024 Neil Roberts\n
