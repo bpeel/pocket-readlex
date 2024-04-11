@@ -120,23 +120,35 @@ fn main() -> ExitCode {
     };
 
     let mut builder = TrieBuilder::new();
-    let entries = map.into_values()
-        .flatten()
-        .collect::<Vec::<Entry>>();
 
-    for entry in entries.iter() {
-        let Some(pos) = remap_pos(&entry.pos)
-        else {
-            eprintln!(
-                "unknown part of speech “{}” for “{}/{}”",
-                entry.pos,
-                entry.latin,
-                entry.shavian,
-            );
-            return ExitCode::FAILURE;
-        };
+    for article in map.into_values() {
+        let mut had_verb = false;
 
-        builder.add_word(&entry.shavian, &entry.latin, pos as u8);
+        for entry in article.into_iter() {
+            // The ReadLex seems to have the “finite base form” and
+            // the “infinitive form”, but they are both presented as
+            // just “verb” and only one of them is shown. Let’s filter
+            // the second one out in the same way.
+            if entry.pos == "VVB" || entry.pos == "VVI" {
+                if had_verb {
+                    continue;
+                }
+                had_verb = true;
+            }
+
+            let Some(pos) = remap_pos(&entry.pos)
+            else {
+                eprintln!(
+                    "unknown part of speech “{}” for “{}/{}”",
+                    entry.pos,
+                    entry.latin,
+                    entry.shavian,
+                );
+                return ExitCode::FAILURE;
+            };
+
+            builder.add_word(&entry.shavian, &entry.latin, pos as u8);
+        }
     }
 
     if let Err(e) = File::create(&cli.output).and_then(|file| {
