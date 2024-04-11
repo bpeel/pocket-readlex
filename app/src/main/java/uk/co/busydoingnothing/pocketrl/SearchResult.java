@@ -21,14 +21,17 @@ public class SearchResult
     private String word;
     private String translation;
     private byte type;
+    private int articleNum;
 
     public SearchResult(String word,
                         String translation,
-                        byte type)
+                        byte type,
+                        int articleNum)
     {
         this.word = word;
         this.translation = translation;
         this.type = type;
+        this.articleNum = articleNum;
     }
 
     public String getWord()
@@ -44,5 +47,10 @@ public class SearchResult
     public byte getType()
     {
         return type;
+    }
+
+    public int getArticleNum()
+    {
+        return articleNum;
     }
 }

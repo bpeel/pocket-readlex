@@ -43,6 +43,8 @@ use super::bit_writer::BitWriter;
 //   add_word(). The highest bit is set if another translation follows
 //   this one.
 //
+// • Two bytes representing the article number in little-endian.
+//
 // • A series of variable-bit-length numbers representing the path to
 //   take to navigate the tree to find the translation. Each number
 //   represents the number of siblings to skip across before going to
@@ -61,6 +63,7 @@ use std::num::NonZeroUsize;
 struct Translation {
     value: String,
     payload_byte: u8,
+    article_num: u16,
 }
 
 struct Terminator {
@@ -154,7 +157,8 @@ impl TrieBuilder {
         &mut self,
         word: &str,
         translation: String,
-        payload_byte: u8
+        payload_byte: u8,
+        article_num: u16,
     ) {
         assert!(payload_byte < 0x80);
 
@@ -196,6 +200,7 @@ impl TrieBuilder {
             {
                 terminator.translations.push(Translation {
                     payload_byte,
+                    article_num,
                     value: translation,
                 });
                 break;
@@ -208,16 +213,19 @@ impl TrieBuilder {
         word: &str,
         translation: &str,
         payload_byte: u8,
+        article_num: u16,
     ) {
         self.add_word_one_direction(
             word,
             translation.to_string(),
             payload_byte,
+            article_num,
         );
         self.add_word_one_direction(
             translation,
             word.to_string(),
             payload_byte,
+            article_num,
         );
     }
 
@@ -361,6 +369,9 @@ impl TrieBuilder {
             }
 
             payload.push(payload_byte);
+
+            let article_num_bytes = translation.article_num.to_le_bytes();
+            payload.extend(article_num_bytes.iter());
 
             let mut writer = BitWriter::new(&mut payload);
             self.write_path(&translation.value, &mut writer).unwrap();
@@ -570,7 +581,7 @@ mod test {
     fn duplicates() {
         let mut builder = TrieBuilder::new();
 
-        builder.add_word("abc", "bbc", 0x7e);
+        builder.add_word("abc", "bbc", 0x7e, 0x1234);
 
         let mut dictionary = Vec::<u8>::new();
 
@@ -578,23 +589,23 @@ mod test {
 
         // There should be 8 nodes because the “bc” endings shouldn’t
         // be combined into one. Each node takes up 2 bytes in this
-        // small example, plus 2 bytes for each terminator.
-        assert_eq!(dictionary.len(), 4 + 8 * 2 + 2 * 2);
+        // small example, plus 4 bytes for each terminator.
+        assert_eq!(dictionary.len(), 4 + 8 * 2 + 4 * 2);
 
         assert_eq!(
             &dictionary,
             &[
-                22, 0x00, 0x00, 0x00,
-                9, b'a',
+                24, 0x00, 0x00, 0x00,
+                11, b'a',
                 0, b'b',
                 0, b'c',
                 0, b'\0',
-                0x7e, 1,
+                0x7e, 0x34, 0x12, 1,
                 0, b'b',
                 0, b'b',
                 0, b'c',
                 0, b'\0',
-                0x7e, 0,
+                0x7e, 0x34, 0x12, 0,
             ],
         );
     }

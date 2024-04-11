@@ -121,10 +121,15 @@ fn main() -> ExitCode {
 
     let mut builder = TrieBuilder::new();
 
-    for article in map.into_values() {
+    let mut keys = map.keys().collect::<Vec<_>>();
+    // Sort the keys so that we can iterate the hash map in a
+    // reproducible order.
+    keys.sort_unstable();
+
+    for (article_num, &key) in keys.iter().enumerate() {
         let mut had_verb = false;
 
-        for entry in article.into_iter() {
+        for entry in map[key].iter() {
             // The ReadLex seems to have the “finite base form” and
             // the “infinitive form”, but they are both presented as
             // just “verb” and only one of them is shown. Let’s filter
@@ -147,7 +152,12 @@ fn main() -> ExitCode {
                 return ExitCode::FAILURE;
             };
 
-            builder.add_word(&entry.shavian, &entry.latin, pos as u8);
+            builder.add_word(
+                &entry.shavian,
+                &entry.latin,
+                pos as u8,
+                article_num as u16,
+            );
         }
     }
 

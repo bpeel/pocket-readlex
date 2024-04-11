@@ -300,16 +300,22 @@ public class Trie
 
         while (numResults < results.length) {
             byte payload = data[pos];
+            int articleNum =
+                (data[pos + 1] & 0xff) |
+                ((((int) data[pos + 2]) & 0xff) << 8);
+
+            pos += 3;
 
             stringBuf.setLength(0);
 
-            reader.resetPosition(pos + 1);
+            reader.resetPosition(pos);
             walkPath(reader, stringBuf);
-            pos += 1 + reader.getBytesConsumed();
+            pos += reader.getBytesConsumed();
 
             results[numResults++] = new SearchResult(word,
                                                      stringBuf.toString(),
-                                                     (byte) (payload & 0x7f));
+                                                     (byte) (payload & 0x7f),
+                                                     articleNum);
 
             if ((payload & 0x80) == 0)
                 break;
@@ -410,6 +416,8 @@ public class Trie
             System.out.println(result[i].getWord() +
                                " (" +
                                result[i].getType() +
+                               ", " +
+                               result[i].getArticleNum() +
                                ", " +
                                result[i].getTranslation() +
                                ")");

@@ -179,14 +179,19 @@ fn dump_path(buf: &[u8], pos: usize) -> Result<usize, Error> {
 
 fn dump_payload(buf: &[u8], mut pos: usize) -> Result<(), Error> {
     loop {
-        let Some(&payload_byte) = buf.get(pos)
+        let Some(payload_and_article) = buf.get(pos..pos + 3)
         else {
             return Err(Error::UnexpectedEof);
         };
 
-        print!(" ({}, ", payload_byte & 0x7f);
+        let payload_byte = payload_and_article[0];
+        let article_num = u16::from_le_bytes(
+            payload_and_article[1..3].try_into().unwrap()
+        );
 
-        pos = dump_path(buf, pos + 1)?;
+        print!(" ({}, {}, ", payload_byte & 0x7f, article_num);
+
+        pos = dump_path(buf, pos + 3)?;
 
         print!(")");
 
