@@ -42,7 +42,43 @@ struct Entry {
     latin: String,
     #[serde(rename = "Shaw")]
     shavian: String,
+    pos: String,
 }
+
+static PARTS_OF_SPEECH: [&'static str; 40] = [
+    "AJ0", "AJC", "AJS", "AT0", "AV0", "AVP", "AVQ", "CJC", "CJS",
+    "CJT", "CRD", "DPS", "DT0", "DTQ", "EX0", "ITJ", "NN0", "NN1",
+    "NN2", "NP0", "ORD", "PNI", "PNP", "PNQ", "PNX", "POS", "PRE",
+    "PRF", "PRP", "TO0", "UNC", "VM0", "VVB", "VVD", "VVG", "VVI",
+    "VVN", "VVZ", "XX0", "ZZ0",
+];
+
+static PARTS_OF_SPEECH_REMAP: [(&'static str, &'static str); 19] = [
+    // I’m not sure if this is a mistake in the ReadLex. The code
+    // isn’t mentioned in the BNC Basic Tagset and it only appears
+    // once in the ReadLex.
+    ("P0", "NP0"),
+    // These are special classes just for the verbs “to be”, “to do”
+    // and “to have” but we can treat them just like any other verb.
+    ("VBB", "VVB"),
+    ("VBD", "VVD"),
+    ("VBG", "VVG"),
+    ("VBI", "VVI"),
+    ("VBN", "VVN"),
+    ("VBZ", "VVZ"),
+    ("VDB", "VVB"),
+    ("VDD", "VVD"),
+    ("VDG", "VVG"),
+    ("VDI", "VVI"),
+    ("VDN", "VVN"),
+    ("VDZ", "VVZ"),
+    ("VHB", "VVB"),
+    ("VHD", "VVD"),
+    ("VHG", "VVG"),
+    ("VHI", "VVI"),
+    ("VHN", "VVN"),
+    ("VHZ", "VVZ"),
+];
 
 type ReadLexMap = HashMap<String, Vec<Entry>>;
 
@@ -54,6 +90,22 @@ fn load_readlex<P: AsRef<Path>>(path: P) -> Result<ReadLexMap, String> {
         },
         Err(e) => Err(format!("{}", e))
     }
+}
+
+fn remap_pos(pos: &str) -> Option<u8> {
+    // The part of speech can be a list of values seperated by
+    // “+”. We’ll just take the first one.
+    let first_pos = pos.split_once('+')
+        .map(|(first, _)| first)
+        .unwrap_or(pos);
+
+    let pos = PARTS_OF_SPEECH_REMAP.binary_search_by_key(&first_pos, |(a, _)| a)
+        .map(|map_index| PARTS_OF_SPEECH_REMAP[map_index].1)
+        .unwrap_or(first_pos);
+
+    PARTS_OF_SPEECH.binary_search(&pos)
+        .ok()
+        .map(|pos| pos as u8)
 }
 
 fn main() -> ExitCode {
@@ -73,7 +125,18 @@ fn main() -> ExitCode {
         .collect::<Vec::<Entry>>();
 
     for entry in entries.iter() {
-        builder.add_word(&entry.shavian, &entry.latin, 0);
+        let Some(pos) = remap_pos(&entry.pos)
+        else {
+            eprintln!(
+                "unknown part of speech “{}” for “{}/{}”",
+                entry.pos,
+                entry.latin,
+                entry.shavian,
+            );
+            return ExitCode::FAILURE;
+        };
+
+        builder.add_word(&entry.shavian, &entry.latin, pos as u8);
     }
 
     if let Err(e) = File::create(&cli.output).and_then(|file| {
