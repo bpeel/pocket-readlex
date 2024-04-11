@@ -18,15 +18,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<resources>
-  <style name="word_type" parent="@android:style/TextAppearance.Small">
-    <item name="android:fontFamily">@font/notosans_latin_shavian</item>
-    <item name="android:textColor">?android:textColorHint</item>
-  </style>
-  <style name="word" parent="@android:style/TextAppearance.Medium">
-    <item name="android:fontFamily">@font/notosans_latin_shavian</item>
-  </style>
-  <style name="translation" parent="@android:style/TextAppearance.Medium">
-    <item name="android:fontFamily">@font/notosans_latin_shavian</item>
-  </style>
-</resources>
+<font-family xmlns:app="http://schemas.android.com/apk/res-auto">
+  <font app:fontStyle="normal"
+        app:fontWeight="400"
+        app:font="@font/notosans_latin_shavian_regular" />
+</font-family>

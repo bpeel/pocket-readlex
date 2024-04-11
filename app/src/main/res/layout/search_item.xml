@@ -29,7 +29,7 @@
 
   <TextView
       android:id="@+id/word"
-      style="?android:attr/textAppearanceMedium"
+      style="@style/word"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
       app:layout_constraintStart_toStartOf="parent"
@@ -37,7 +37,7 @@
 
   <TextView
       android:id="@+id/translation"
-      style="?android:attr/textAppearanceMedium"
+      style="@style/translation"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
       android:gravity="end"
