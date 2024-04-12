@@ -38,6 +38,9 @@
               android:label="@string/search"
               android:exported="false">
     </activity>
+    <activity android:name="ArticleActivity"
+              android:exported="false">
+    </activity>
     <activity android:name="ContextMenuSearchActivity"
               android:label="@string/context_menu_search"
               android:exported="true">

@@ -68,6 +68,23 @@ public class SearchActivity extends AppCompatActivity
             if (searchTerm != null)
                 tv.setText(searchTerm);
         }
+
+        lv.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            public void onItemClick (AdapterView<?> parent,
+                                     View view,
+                                     int position,
+                                     long id)
+            {
+              SearchAdapter adapter =
+                (SearchAdapter) parent.getAdapter();
+              SearchResult result = adapter.getItem(position);
+              Intent intent = new Intent(view.getContext(),
+                                         ArticleActivity.class);
+              intent.putExtra(ArticleActivity.EXTRA_ARTICLE_NUMBER,
+                              result.getArticleNum());
+              startActivity(intent);
+            }
+          });
     }
 
     @Override

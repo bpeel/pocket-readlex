@@ -29,4 +29,19 @@
   <style name="translation" parent="@android:style/TextAppearance.Medium">
     <item name="android:fontFamily">@font/notosans_latin_shavian</item>
   </style>
+  <style name="entry_translation"
+         parent="@android:style/TextAppearance.Medium">
+    <item name="android:fontFamily">@font/notosans_latin_shavian</item>
+  </style>
+  <style name="entry_ipa"
+         parent="@android:style/TextAppearance.Medium">
+  </style>
+  <style name="entry_type"
+         parent="@android:style/TextAppearance.Medium">
+    <item name="android:textStyle">italic</item>
+  </style>
+  <style name="entry_var"
+         parent="@android:style/TextAppearance.Medium">
+    <item name="android:textStyle">italic</item>
+  </style>
 </resources>
