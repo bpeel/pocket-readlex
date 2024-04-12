@@ -54,6 +54,8 @@ public class SearchActivity extends AppCompatActivity
         "https://readlex.pythonanywhere.com/";
     private static final String PRIVACY_POLICY_URL =
         "https://busydoingnothing.co.uk/pocketrl/privacy-policy.html";
+    private static final String CC_BY_SA_URL =
+        "https://creativecommons.org/licenses/by-sa/4.0/?ref=chooser-v1";
 
     private static final int DIALOG_ABOUT = 0;
 
@@ -182,6 +184,13 @@ public class SearchActivity extends AppCompatActivity
         if (pos != -1) {
             URLSpan span = new URLSpan(PRIVACY_POLICY_URL);
             string.setSpan(span, pos, pos + 14, 0 /* flags */);
+        }
+
+        pos = string.toString ().indexOf("CC BY-SA 4.0");
+
+        if (pos != -1) {
+            URLSpan span = new URLSpan(CC_BY_SA_URL);
+            string.setSpan(span, pos, pos + 12, 0 /* flags */);
         }
     }
 

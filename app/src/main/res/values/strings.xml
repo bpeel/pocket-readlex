@@ -29,7 +29,8 @@
   <string name="about_message">
 <b>Pocket ReadLex @VERSION@</b>\n
 \nCopyright © 2024 Neil Roberts\n
-\nThe data for the dictionary comes from the Read Lexicon.\n
+\nThe data for the dictionary comes from the Read Lexicon available under
+CC BY-SA 4.0.\n
 \nThis program comes with ABSOLUTELY NO WARRANTY. This is free
 software and you are welcome to redistribute it under certain
 conditions. Click here for details.\n
