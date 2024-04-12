@@ -108,6 +108,47 @@ fn remap_pos(pos: &str) -> Option<u8> {
         .map(|pos| pos as u8)
 }
 
+// Iterator adaptor to help filter out certain entries
+struct EntryFilter<'a, T: Iterator<Item = &'a Entry>> {
+    had_verb: bool,
+    inner: T,
+}
+
+impl<'a, T: Iterator<Item = &'a Entry>> EntryFilter<'a, T> {
+    fn new(inner: T) -> Self {
+        EntryFilter {
+            had_verb: false,
+            inner,
+        }
+    }
+}
+
+impl<'a, T: Iterator<Item = &'a Entry>> Iterator for EntryFilter<'a, T> {
+    type Item = &'a Entry;
+
+    fn next(&mut self) -> Option<&'a Entry> {
+        loop {
+            if let Some(entry) = self.inner.next() {
+                // The ReadLex seems to have the “finite base form”
+                // and the “infinitive form”, but they are both
+                // presented as just “verb” and only one of them is
+                // shown. Let’s filter the second one out in the same
+                // way.
+                if entry.pos == "VVB" || entry.pos == "VVI" {
+                    if self.had_verb {
+                        continue;
+                    }
+                    self.had_verb = true;
+                }
+
+                break Some(entry);
+            } else {
+                break None;
+            }
+        }
+    }
+}
+
 fn main() -> ExitCode {
     let cli = Cli::parse();
 
@@ -127,20 +168,7 @@ fn main() -> ExitCode {
     keys.sort_unstable();
 
     for (article_num, &key) in keys.iter().enumerate() {
-        let mut had_verb = false;
-
-        for entry in map[key].iter() {
-            // The ReadLex seems to have the “finite base form” and
-            // the “infinitive form”, but they are both presented as
-            // just “verb” and only one of them is shown. Let’s filter
-            // the second one out in the same way.
-            if entry.pos == "VVB" || entry.pos == "VVI" {
-                if had_verb {
-                    continue;
-                }
-                had_verb = true;
-            }
-
+        for entry in EntryFilter::new(map[key].iter()) {
             let Some(pos) = remap_pos(&entry.pos)
             else {
                 eprintln!(
