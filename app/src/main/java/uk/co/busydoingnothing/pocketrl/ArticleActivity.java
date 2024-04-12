@@ -113,6 +113,18 @@ public class ArticleActivity extends AppCompatActivity
         }
     }
 
+    private CharSequence readIpa(BinaryReader in)
+        throws IOException
+    {
+        StringBuilder stringBuf = new StringBuilder("/");
+
+        readStringIntoBuffer(in, stringBuf);
+
+        stringBuf.append("/");
+
+        return stringBuf;
+    }
+
     private String readVariant(BinaryReader in)
         throws IOException
     {
@@ -151,7 +163,7 @@ public class ArticleActivity extends AppCompatActivity
             tv = (TextView) entry.findViewById(R.id.entry_type);
             tv.setText(type);
 
-            CharSequence ipa = readString(in);
+            CharSequence ipa = readIpa(in);
             tv = (TextView) entry.findViewById(R.id.entry_ipa);
             tv.setText(ipa);
 
