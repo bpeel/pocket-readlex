@@ -182,8 +182,11 @@ public class ArticleActivity extends AppCompatActivity
                                  false /* attachToRoot */);
 
                     StringBuilder variantBuf = new StringBuilder();
-                    variantBuf.append("also ");
-                    variantBuf.append(variant);
+                    variantBuf.append("also");
+                    if (variant.length() > 0) {
+                        variantBuf.append(" ");
+                        variantBuf.append(variant);
+                    }
                     variantBuf.append(':');
                     tv = (TextView) variantView.findViewById(R.id.entry_var);
                     tv.setText(variantBuf.toString());

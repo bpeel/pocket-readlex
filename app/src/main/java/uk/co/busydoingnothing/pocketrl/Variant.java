@@ -20,8 +20,8 @@ public class Variant {
     private static String[] names = {
         "general American",
         "general Australian",
-        "rhotic RP",
-        "rhotic RP variant",
+        "", // RRP
+        "", // RRPVar
         "standard southern British",
         "trap-bath merger",
     };
