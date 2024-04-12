@@ -18,21 +18,9 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<resources>
-  <string name="app_name">Pocket ReadLex</string>
-  <string name="search">Search</string>
-  <string name="no_results">No results found</string>
-  <string name="type_to_filter">Type something to search</string>
-  <string name="context_menu_search">Search ReadLex</string>
-  <string name="close">Close</string>
-  <string name="menu_about">About</string>
-  <string name="about_message">
-<b>Pocket ReadLex @VERSION@</b>\n
-\nCopyright © 2024 Neil Roberts\n
-\nThe data for the dictionary comes from the Read Lexicon.\n
-\nThis program comes with ABSOLUTELY NO WARRANTY. This is free
-software and you are welcome to redistribute it under certain
-conditions. Click here for details.\n
-\nPrivacy policy
-  </string>
-</resources>
+<TextView xmlns:a="http://schemas.android.com/apk/res/android"
+          a:id="@+id/about_view"
+          a:layout_width="match_parent"
+          a:layout_height="wrap_content"
+          a:padding="6sp"
+          style="?android:attr/textAppearanceMedium" />
