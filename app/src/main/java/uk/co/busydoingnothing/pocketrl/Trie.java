@@ -115,52 +115,6 @@ public class Trie
         readAll(dataStream, data, 0, length);
     }
 
-    // Gets the number of bytes needed for a UTF-8 sequence which
-    // begins with the given byte.
-    private static int getUtf8Length(byte firstByte)
-    {
-        if (firstByte >= 0)
-            return 1;
-        if ((firstByte & 0xe0) == 0xc0)
-            return 2;
-        if ((firstByte & 0xf0) == 0xe0)
-            return 3;
-        if ((firstByte & 0xf8) == 0xf0)
-            return 4;
-        if ((firstByte & 0xfc) == 0xf8)
-            return 5;
-
-        return 6;
-    }
-
-    private int getUtf8Character(int offset)
-    {
-        byte firstByte = data[offset];
-
-        if (firstByte >= 0)
-            return firstByte;
-
-        int nExtraBytes;
-        int value;
-
-        if ((firstByte & 0xe0) == 0xc0) {
-            nExtraBytes = 1;
-            value = firstByte & 0x1f;
-        } else if ((firstByte & 0xf0) == 0xe0) {
-            nExtraBytes = 2;
-            value = firstByte & 0x0f;
-        } else {
-            nExtraBytes = 3;
-            value = firstByte & 0x07;
-        }
-
-        for (int i = 0; i < nExtraBytes; i++) {
-            value = (value << 6) | (data[offset + 1 + i] & 0x3f);
-        }
-
-        return value;
-    }
-
     private int findSiblingForCharacter(int ch, int pos) {
         while (true) {
             int siblingOffset = 0;
@@ -173,11 +127,11 @@ public class Trie
                 }
             }
 
-            int nodeCh = getUtf8Character(pos);
+            int nodeCh = Utf8.getCharacter(data, pos);
 
             if (nodeCh == ch) {
                 // We find the character, return the position of the first child
-                return pos + getUtf8Length(data[pos]);
+                return pos + Utf8.getLength(data[pos]);
             } else {
                 // Character doesn’t match, need to try the next
                 // sibling. If there isn’t a next sibling then this
@@ -278,7 +232,7 @@ public class Trie
                 }
             }
 
-            int nodeCh = getUtf8Character(pos);
+            int nodeCh = Utf8.getCharacter(data, pos);
 
             if (nodeCh == 0) {
                 break;
@@ -286,7 +240,7 @@ public class Trie
 
             stringBuf.appendCodePoint(nodeCh);
 
-            pos += getUtf8Length(data[pos]);
+            pos += Utf8.getLength(data[pos]);
         }
     }
 
@@ -368,7 +322,7 @@ public class Trie
                 }
             }
 
-            int nodeCh = getUtf8Character(pos);
+            int nodeCh = Utf8.getCharacter(data, pos);
 
             // If there is a sibling then make sure we continue from
             // that after we’ve descended through the children of this
@@ -377,7 +331,7 @@ public class Trie
                 stack.push(pos + siblingOffset, stringBuf.length());
             }
 
-            int dataPos = pos + getUtf8Length(data[pos]);
+            int dataPos = pos + Utf8.getLength(data[pos]);
 
             if (nodeCh == 0) {
                 // This is a complete word so add all of the
