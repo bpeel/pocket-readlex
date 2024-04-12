@@ -149,23 +149,12 @@ impl<'a, T: Iterator<Item = &'a Entry>> Iterator for EntryFilter<'a, T> {
     }
 }
 
-fn main() -> ExitCode {
-    let cli = Cli::parse();
-
-    let map = match load_readlex(&cli.input) {
-        Ok(m) => m,
-        Err(e) => {
-            eprintln!("{}: {}", cli.input.to_string_lossy(), e);
-            return ExitCode::FAILURE;
-        },
-    };
-
+fn build_trie<P: AsRef<Path>>(
+    map: &ReadLexMap,
+    keys: &[&String],
+    output: P,
+) -> Result<(), ()> {
     let mut builder = TrieBuilder::new();
-
-    let mut keys = map.keys().collect::<Vec<_>>();
-    // Sort the keys so that we can iterate the hash map in a
-    // reproducible order.
-    keys.sort_unstable();
 
     for (article_num, &key) in keys.iter().enumerate() {
         for entry in EntryFilter::new(map[key].iter()) {
@@ -177,7 +166,7 @@ fn main() -> ExitCode {
                     entry.latin,
                     entry.shavian,
                 );
-                return ExitCode::FAILURE;
+                return Err(());
             };
 
             builder.add_word(
@@ -189,10 +178,33 @@ fn main() -> ExitCode {
         }
     }
 
-    if let Err(e) = File::create(&cli.output).and_then(|file| {
+    if let Err(e) = File::create(&output).and_then(|file| {
         builder.into_dictionary(&mut BufWriter::new(file))
     }) {
-        eprintln!("{}: {}", cli.output.to_string_lossy(), e);
+        eprintln!("{}: {}", output.as_ref().to_string_lossy(), e);
+        return Err(());
+    }
+
+    Ok(())
+}
+
+fn main() -> ExitCode {
+    let cli = Cli::parse();
+
+    let map = match load_readlex(&cli.input) {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!("{}: {}", cli.input.to_string_lossy(), e);
+            return ExitCode::FAILURE;
+        },
+    };
+
+    let mut keys = map.keys().collect::<Vec<_>>();
+    // Sort the keys so that we can iterate the hash map in a
+    // reproducible order.
+    keys.sort_unstable();
+
+    if build_trie(&map, &keys, &cli.output).is_err() {
         return ExitCode::FAILURE;
     }
 
