@@ -7,3 +7,4 @@ local.properties
 .externalNativeBuild
 
 /app/src/main/assets/dictionary.bin
+/app/src/main/assets/articles

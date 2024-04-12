@@ -40,10 +40,11 @@ dependencies {
 
 task buildDictionary {
     outputs.file 'src/main/assets/dictionary.bin'
+    outputs.dir 'src/main/assets/articles'
 
     doLast {
         exec {
-            commandLine 'cargo', 'run', '--release', '--manifest-path', '../compiledb/Cargo.toml', '--', '-i', '../extern/readlex/readlex.json', '-o', 'src/main/assets/dictionary.bin'
+            commandLine 'cargo', 'run', '--release', '--manifest-path', '../compiledb/Cargo.toml', '--', '-i', '../extern/readlex/readlex.json', '-o', 'src/main/assets/dictionary.bin', '-a', 'src/main/assets/articles'
         }
     }
 }
