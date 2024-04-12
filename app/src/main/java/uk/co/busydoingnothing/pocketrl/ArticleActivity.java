@@ -24,6 +24,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -70,6 +71,14 @@ public class ArticleActivity extends AppCompatActivity
             int ch = Utf8.getCharacter(characterBuf, 0);
             stringBuf.appendCodePoint(ch);
         }
+    }
+
+    private CharSequence readString(BinaryReader in)
+        throws IOException
+    {
+        StringBuilder stringBuf = new StringBuilder();
+        readStringIntoBuffer(in, stringBuf);
+        return stringBuf;
     }
 
     private CharSequence readPartOfSpeech(BinaryReader in)
@@ -137,28 +146,60 @@ public class ArticleActivity extends AppCompatActivity
                                                 layout,
                                                 false /* attachToRoot */);
 
-            StringBuilder stringBuf = new StringBuilder();
-            readStringIntoBuffer(in, stringBuf);
+            CharSequence latin = readString(in);
 
             if (entryNum == 0)
-                setTitle(stringBuf.toString());
-
-            stringBuf.append(" → ");
-            readStringIntoBuffer(in, stringBuf);
-            TextView tv = (TextView) entry.findViewById(R.id.entry_translation);
-            tv.setText(stringBuf);
+                setTitle(latin);
 
             CharSequence type = readPartOfSpeech(in);
-            tv = (TextView) entry.findViewById(R.id.entry_type);
+            TextView tv = (TextView) entry.findViewById(R.id.entry_type);
             tv.setText(type);
 
-            CharSequence ipa = readIpa(in);
-            tv = (TextView) entry.findViewById(R.id.entry_ipa);
-            tv.setText(ipa);
+            ViewGroup variantsView =
+                (ViewGroup) entry.findViewById(R.id.entry_variants);
 
-            CharSequence var = readVariant(in);
-            tv = (TextView) entry.findViewById(R.id.entry_var);
-            tv.setText(var);
+            int nVariants = in.readByte() & 0xff;
+
+            for (int variantNum = 0; variantNum < nVariants; variantNum++) {
+                View variantView;
+
+                CharSequence variant = readVariant(in);
+
+                StringBuilder stringBuf = new StringBuilder();
+
+                if (variantNum == 0) {
+                    variantView = layoutInflater
+                        .inflate(R.layout.first_variant_entry,
+                                 layout,
+                                 false /* attachToRoot */);
+
+                    stringBuf.append(latin);
+                    stringBuf.append(" → ");
+                } else {
+                    variantView = layoutInflater
+                        .inflate(R.layout.variant_entry,
+                                 layout,
+                                 false /* attachToRoot */);
+
+                    StringBuilder variantBuf = new StringBuilder();
+                    variantBuf.append("also ");
+                    variantBuf.append(variant);
+                    variantBuf.append(':');
+                    tv = (TextView) variantView.findViewById(R.id.entry_var);
+                    tv.setText(variantBuf.toString());
+                }
+
+                readStringIntoBuffer(in, stringBuf);
+                tv = (TextView) variantView
+                    .findViewById(R.id.entry_translation);
+                tv.setText(stringBuf);
+
+                CharSequence ipa = readIpa(in);
+                tv = (TextView) variantView.findViewById(R.id.entry_ipa);
+                tv.setText(ipa);
+
+                variantsView.addView(variantView);
+            }
 
             layout.addView(entry);
 

@@ -49,6 +49,18 @@ struct Entry {
     var: String,
 }
 
+struct ArticleEntry<'a> {
+    latin: &'a str,
+    pos: Vec<u8>,
+    variants: Vec<ArticleVariant<'a>>,
+}
+
+struct ArticleVariant<'a> {
+    shavian: &'a str,
+    ipa: &'a str,
+    var: u8,
+}
+
 static PARTS_OF_SPEECH: [&'static str; 40] = [
     "AJ0", "AJC", "AJS", "AT0", "AV0", "AVP", "AVQ", "CJC", "CJS",
     "CJT", "CRD", "DPS", "DT0", "DTQ", "EX0", "ITJ", "NN0", "NN1",
@@ -216,28 +228,9 @@ fn write_string(s: &str, output: &mut impl Write) -> std::io::Result<()> {
     output.write_all(s.as_bytes())
 }
 
-fn write_pos(pos: &str, output: &mut impl Write) -> std::io::Result<()> {
-    let n_pos = pos.split('+').count();
-    output.write_all(&[n_pos as u8])?;
-
-    for pos in pos.split('+') {
-        match remap_pos(pos) {
-            Some(pos) => output.write_all(&[pos as u8])?,
-            None => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("unknown part of speech: {}", pos),
-                ));
-            },
-        }
-    }
-
-    Ok(())
-}
-
-fn write_var(var: &str, output: &mut impl Write) -> std::io::Result<()> {
+fn lookup_var(var: &str) -> std::io::Result<u8> {
     match VARIATIONS.binary_search(&var) {
-        Ok(var_pos) => output.write_all(&[var_pos as u8]),
+        Ok(var_pos) => Ok(var_pos as u8),
         Err(_) => {
             Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -247,26 +240,86 @@ fn write_var(var: &str, output: &mut impl Write) -> std::io::Result<()> {
     }
 }
 
+fn lookup_pos(pos: &str) -> std::io::Result<Vec<u8>> {
+    let mut result = Vec::<u8>::new();
+
+    for pos in pos.split('+') {
+        match remap_pos(pos) {
+            Some(pos) => {
+                result.push(pos);
+            },
+            None => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("unknown part of speech: {}", pos),
+                ));
+            },
+        }
+    }
+
+    Ok(result)
+}
+
+fn combine_variants(article: &[Entry]) -> std::io::Result<Vec<ArticleEntry>> {
+    let mut entries = Vec::<ArticleEntry>::new();
+
+    for entry in EntryFilter::new(article.iter()) {
+        let variant = ArticleVariant {
+            shavian: &entry.shavian,
+            ipa: &entry.ipa,
+            var: lookup_var(&entry.var)?,
+        };
+
+        let pos = lookup_pos(&entry.pos)?;
+
+        if let Some(last_entry) = entries.last_mut() {
+            if last_entry.latin == entry.latin
+                && last_entry.pos == pos
+            {
+                last_entry.variants.push(variant);
+                continue;
+            }
+        }
+
+        entries.push(ArticleEntry {
+            latin: &entry.latin,
+            pos,
+            variants: vec![variant],
+        });
+    }
+
+    Ok(entries)
+}
+
 fn write_article(
     article: &[Entry],
     output: &mut impl Write,
 ) -> std::io::Result<()> {
-    let article_len = EntryFilter::new(article.iter()).map(|entry| {
+    let entries = combine_variants(article)?;
+
+    let article_len = entries.iter().map(|entry| {
         1 + entry.latin.len()
-            + 1 + entry.shavian.len()
-            + 1 + entry.pos.split('+').count()
-            + 1 + entry.ipa.len()
-            + 1 // var
+            + 1 + entry.pos.len()
+            + 1 + entry.variants.iter().map(|variant| {
+                1
+                    + 1 + variant.shavian.len()
+                    + 1 + variant.ipa.len()
+            }).sum::<usize>()
     }).sum::<usize>();
 
     output.write_all(&(article_len as u16).to_le_bytes())?;
 
-    for entry in EntryFilter::new(article.iter()) {
+    for entry in entries.iter() {
         write_string(&entry.latin, output)?;
-        write_string(&entry.shavian, output)?;
-        write_pos(&entry.pos, output)?;
-        write_string(&entry.ipa, output)?;
-        write_var(&entry.var, output)?;
+        output.write_all(&[entry.pos.len() as u8])?;
+        output.write_all(&entry.pos)?;
+        output.write_all(&[entry.variants.len() as u8])?;
+
+        for variant in entry.variants.iter() {
+            output.write_all(&[variant.var])?;
+            write_string(&variant.shavian, output)?;
+            write_string(&variant.ipa, output)?;
+        }
     }
 
     Ok(())

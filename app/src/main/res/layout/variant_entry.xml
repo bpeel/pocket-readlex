@@ -21,16 +21,17 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
               android:orientation="vertical"
               android:layout_width="match_parent"
-              android:layout_height="wrap_content"
-              android:layout_margin="6dip"
-              android:padding="12dip"
-              android:background="@drawable/entry_border">
-  <LinearLayout android:id="@+id/entry_variants"
-                android:orientation="vertical"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content" />
-  <TextView android:id="@+id/entry_type"
-            style="@style/entry_type"
+              android:layout_height="wrap_content">
+  <TextView android:id="@+id/entry_var"
+            style="@style/entry_var"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+  <TextView android:id="@+id/entry_translation"
+            style="@style/entry_translation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+  <TextView android:id="@+id/entry_ipa"
+            style="@style/entry_ipa"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content" />
 </LinearLayout>
