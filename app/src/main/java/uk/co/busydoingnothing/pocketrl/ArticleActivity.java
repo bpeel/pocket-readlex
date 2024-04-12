@@ -72,26 +72,6 @@ public class ArticleActivity extends AppCompatActivity
         }
     }
 
-    private CharSequence readString(BinaryReader in)
-        throws IOException
-    {
-        StringBuilder stringBuf = new StringBuilder();
-        readStringIntoBuffer(in, stringBuf);
-        return stringBuf;
-    }
-
-    private CharSequence readTranslation(BinaryReader in)
-        throws IOException
-    {
-        StringBuilder stringBuf = new StringBuilder();
-
-        readStringIntoBuffer(in, stringBuf);
-        stringBuf.append(" → ");
-        readStringIntoBuffer(in, stringBuf);
-
-        return stringBuf;
-    }
-
     private CharSequence readPartOfSpeech(BinaryReader in)
         throws IOException
     {
@@ -150,14 +130,23 @@ public class ArticleActivity extends AppCompatActivity
 
         LayoutInflater layoutInflater = getLayoutInflater();
 
+        int entryNum = 0;
+
         while (in.getPosition() - articleStart < articleLength) {
             View entry = layoutInflater.inflate(R.layout.article_entry,
                                                 layout,
                                                 false /* attachToRoot */);
 
-            CharSequence translation = readTranslation(in);
+            StringBuilder stringBuf = new StringBuilder();
+            readStringIntoBuffer(in, stringBuf);
+
+            if (entryNum == 0)
+                setTitle(stringBuf.toString());
+
+            stringBuf.append(" → ");
+            readStringIntoBuffer(in, stringBuf);
             TextView tv = (TextView) entry.findViewById(R.id.entry_translation);
-            tv.setText(translation);
+            tv.setText(stringBuf);
 
             CharSequence type = readPartOfSpeech(in);
             tv = (TextView) entry.findViewById(R.id.entry_type);
@@ -172,6 +161,8 @@ public class ArticleActivity extends AppCompatActivity
             tv.setText(var);
 
             layout.addView(entry);
+
+            entryNum++;
         }
 
         return layout;
