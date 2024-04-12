@@ -202,6 +202,14 @@ public class ArticleActivity extends AppCompatActivity
                 tv.setText(ipa);
 
                 variantsView.addView(variantView);
+
+                if (nVariants > 1) {
+                    View separator =
+                        layoutInflater.inflate(R.layout.variant_separator,
+                                               layout,
+                                               false);
+                    variantsView.addView(separator);
+                }
             }
 
             layout.addView(entry);
