@@ -19,31 +19,21 @@ package uk.co.busydoingnothing.pocketrl;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.res.AssetManager;
-import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.ZoomControls;
 import java.io.IOException;
 import java.util.Locale;
 
 public class ArticleActivity extends AppCompatActivity
-    implements SharedPreferences.OnSharedPreferenceChangeListener
 {
     public static final String EXTRA_ARTICLE_NUMBER =
         "uk.co.busydoingnothing.pocketrl.ArticleNumber";
-    public static final String POCKETRL_PREFERENCES =
-        "PocketrlPreferences";
-    public static final String PREF_FONT_SIZE =
-        "fontSize";
 
     public static final String TAG = "pocketrlarticle";
 
@@ -51,23 +41,7 @@ public class ArticleActivity extends AppCompatActivity
     private View articleView;
     private int articleNumber;
 
-    private ZoomControls zoomControls;
-    private RelativeLayout layout;
-
-    // There are 10 font sizes ranging from 0 to 9. The actual font size
-    // used is calculated from a logarithmic scale and set in density
-    // independent pixels.
-    private static final int N_FONT_SIZES = 10;
-    private static final float FONT_SIZE_ROOT = 1.2f;
-
-    private int fontSize = N_FONT_SIZES / 2;
-    private float baseTextSize;
-
-    private static final int MSG_HIDE_ZOOM_CONTROLS = 4;
-
     private static final int N_ARTICLES_PER_FILE = 128;
-
-    private Handler handler;
 
     private boolean reloadQueued;
 
@@ -173,8 +147,6 @@ public class ArticleActivity extends AppCompatActivity
             TextView tv = (TextView) entry.findViewById(R.id.entry_translation);
             tv.setText(translation);
 
-            baseTextSize = tv.getTextSize();
-
             CharSequence type = readPartOfSpeech(in);
             tv = (TextView) entry.findViewById(R.id.entry_type);
             tv.setText(type);
@@ -191,39 +163,6 @@ public class ArticleActivity extends AppCompatActivity
         }
 
         return layout;
-    }
-
-    private void updateZoomability()
-    {
-        if (zoomControls != null) {
-            zoomControls.setIsZoomInEnabled(fontSize < N_FONT_SIZES - 1);
-            zoomControls.setIsZoomOutEnabled(fontSize > 0);
-        }
-    }
-
-    private void setFontSize(int fontSize)
-    {
-        if (fontSize < 0)
-            fontSize = 0;
-        else if (fontSize >= N_FONT_SIZES)
-            fontSize = N_FONT_SIZES - 1;
-
-        if (fontSize != this.fontSize) {
-            // There’s no point in updating the font size if a reload is
-            // queued because it will just get set back to the default
-            // when it is finally reloaded.
-            if (!reloadQueued) {
-                float fontSizeScale =
-                    (float) Math.pow(FONT_SIZE_ROOT,
-                                     fontSize - N_FONT_SIZES / 2);
-
-                // FIXME
-            }
-
-            this.fontSize = fontSize;
-
-            updateZoomability();
-        }
     }
 
     private void loadIntendedArticle()
@@ -246,12 +185,6 @@ public class ArticleActivity extends AppCompatActivity
                 }
             }
         }
-
-        // The font size will have been reset to the default so we need to
-        // update it.
-        int oldFontSize = this.fontSize;
-        this.fontSize = N_FONT_SIZES / 2;
-        setFontSize(oldFontSize);
     }
 
     @Override
@@ -262,17 +195,8 @@ public class ArticleActivity extends AppCompatActivity
         setContentView(R.layout.article);
 
         scrollView = (ScrollView) findViewById(R.id.article_scroll_view);
-        layout = (RelativeLayout) findViewById(R.id.article_layout);
 
         reloadQueued = true;
-
-        SharedPreferences prefs =
-            getSharedPreferences(POCKETRL_PREFERENCES,
-                                 Activity.MODE_PRIVATE);
-
-        setFontSize(prefs.getInt(PREF_FONT_SIZE, fontSize));
-
-        prefs.registerOnSharedPreferenceChangeListener(this);
     }
 
     @Override
@@ -283,107 +207,6 @@ public class ArticleActivity extends AppCompatActivity
         if (reloadQueued) {
             reloadQueued = false;
             loadIntendedArticle();
-        }
-    }
-
-    @Override
-    public void onDestroy()
-    {
-        SharedPreferences prefs =
-            getSharedPreferences(POCKETRL_PREFERENCES,
-                                 Activity.MODE_PRIVATE);
-
-        prefs.unregisterOnSharedPreferenceChangeListener(this);
-
-        super.onDestroy();
-    }
-
-    private void zoom(int direction)
-    {
-        int fontSize = this.fontSize + direction;
-
-        if (fontSize >= N_FONT_SIZES)
-            fontSize = N_FONT_SIZES - 1;
-        else if (fontSize < 0)
-            fontSize = 0;
-
-        SharedPreferences prefs =
-            getSharedPreferences(POCKETRL_PREFERENCES,
-                                 Activity.MODE_PRIVATE);
-        SharedPreferences.Editor editor = prefs.edit();
-        editor.putInt(PREF_FONT_SIZE, fontSize);
-        editor.commit();
-
-        setHideZoom();
-        updateZoomability();
-    }
-
-    private void setHideZoom()
-    {
-        handler.removeMessages(MSG_HIDE_ZOOM_CONTROLS);
-        handler.sendEmptyMessageDelayed(MSG_HIDE_ZOOM_CONTROLS, 10000);
-    }
-
-    private void showZoomController()
-    {
-        if (zoomControls == null) {
-            final int wrap = RelativeLayout.LayoutParams.WRAP_CONTENT;
-            RelativeLayout.LayoutParams lp =
-                new RelativeLayout.LayoutParams(wrap, wrap);
-            final float scale = getResources().getDisplayMetrics().density;
-
-            lp.addRule(RelativeLayout.CENTER_HORIZONTAL);
-            lp.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
-            lp.bottomMargin = (int) (10.0f * scale + 0.5f);
-
-            zoomControls = new ZoomControls(this);
-            zoomControls.setVisibility(View.GONE);
-            layout.addView(zoomControls, lp);
-
-            zoomControls.setOnZoomInClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v)
-                    {
-                        zoom(+1);
-                    }
-                });
-            zoomControls.setOnZoomOutClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v)
-                    {
-                        zoom(-1);
-                    }
-                });
-
-            handler = new Handler() {
-                    @Override
-                    public void handleMessage(Message msg)
-                    {
-                        switch (msg.what)
-                            {
-                            case MSG_HIDE_ZOOM_CONTROLS:
-                                if (zoomControls != null)
-                                    zoomControls.hide();
-                                break;
-                            }
-                    }
-                };
-
-            updateZoomability();
-        }
-
-        if (zoomControls.getVisibility() != View.VISIBLE) {
-            zoomControls.show();
-            setHideZoom();
-        }
-    }
-
-    @Override
-    public void onSharedPreferenceChanged(SharedPreferences prefs,
-                                          String key)
-    {
-        if (key.equals(PREF_FONT_SIZE)) {
-            setFontSize(prefs.getInt(PREF_FONT_SIZE, fontSize));
         }
     }
 }
