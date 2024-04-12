@@ -31,7 +31,12 @@ android {
     }
 
     applicationVariants.configureEach {
-        tasks["merge${name.capitalize()}Assets"].dependsOn(buildDictionary)
+        def variant = name.capitalize()
+        tasks["merge${variant}Assets"].dependsOn(buildDictionary)
+        def lint = tasks.findByName("lintVitalAnalyze${variant}")
+        if (lint) {
+            lint.dependsOn(buildDictionary)
+        }
     }
 }
 
