@@ -5,7 +5,7 @@ android {
 
     defaultConfig {
         applicationId "uk.co.busydoingnothing.pocketrl"
-        minSdkVersion 16
+        minSdkVersion 21
         targetSdkVersion 33
         versionCode 26
         versionName "0.26"
