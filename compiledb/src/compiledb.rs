@@ -20,7 +20,7 @@ mod bit_writer;
 use std::process::ExitCode;
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::io::BufWriter;
+use std::io::{Write, BufWriter};
 use std::fs::File;
 use trie_builder::TrieBuilder;
 use clap::Parser;
@@ -34,6 +34,8 @@ struct Cli {
     input: OsString,
     #[arg(short, long, value_name = "FILE")]
     output: OsString,
+    #[arg(short, long, value_name = "DIR")]
+    article_dir: Option<OsString>,
 }
 
 #[derive(Deserialize)]
@@ -43,6 +45,8 @@ struct Entry {
     #[serde(rename = "Shaw")]
     shavian: String,
     pos: String,
+    ipa: String,
+    var: String,
 }
 
 static PARTS_OF_SPEECH: [&'static str; 40] = [
@@ -79,6 +83,25 @@ static PARTS_OF_SPEECH_REMAP: [(&'static str, &'static str); 19] = [
     ("VHN", "VVN"),
     ("VHZ", "VVZ"),
 ];
+
+static VARIATIONS: [&'static str; 6] = [
+    "GenAm",
+    "GenAus",
+    "RRP",
+    "RRPVar",
+    "SSB",
+    "TrapBath",
+];
+
+// The articles are really small. We want to split them into multiple
+// files because they will probably be compressed in the app package
+// so we can’t seek into the file to get the right position and
+// therefore we can’t just have one big file with them all. However if
+// we make a single file for each article that will make a lot of
+// files and just the filenames will start to take up a lot of space.
+// As a compromise the articles are grouped with this many in each
+// file.
+const ARTICLES_PER_FILE: usize = 128;
 
 type ReadLexMap = HashMap<String, Vec<Entry>>;
 
@@ -188,6 +211,103 @@ fn build_trie<P: AsRef<Path>>(
     Ok(())
 }
 
+fn write_string(s: &str, output: &mut impl Write) -> std::io::Result<()> {
+    output.write_all(&[s.len() as u8])?;
+    output.write_all(s.as_bytes())
+}
+
+fn write_pos(pos: &str, output: &mut impl Write) -> std::io::Result<()> {
+    let n_pos = pos.split('+').count();
+    output.write_all(&[n_pos as u8])?;
+
+    for pos in pos.split('+') {
+        match remap_pos(pos) {
+            Some(pos) => output.write_all(&[pos as u8])?,
+            None => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("unknown part of speech: {}", pos),
+                ));
+            },
+        }
+    }
+
+    Ok(())
+}
+
+fn write_var(var: &str, output: &mut impl Write) -> std::io::Result<()> {
+    match VARIATIONS.binary_search(&var) {
+        Ok(var_pos) => output.write_all(&[var_pos as u8]),
+        Err(_) => {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("unknown variation: {}", var),
+            ))
+        },
+    }
+}
+
+fn write_article(
+    article: &[Entry],
+    output: &mut impl Write,
+) -> std::io::Result<()> {
+    let article_len = EntryFilter::new(article.iter()).map(|entry| {
+        1 + entry.latin.len()
+            + 1 + entry.shavian.len()
+            + 1 + entry.pos.split('+').count()
+            + 1 + entry.ipa.len()
+            + 1 // var
+    }).sum::<usize>();
+
+    output.write_all(&(article_len as u16).to_le_bytes())?;
+
+    for entry in EntryFilter::new(article.iter()) {
+        write_string(&entry.latin, output)?;
+        write_string(&entry.shavian, output)?;
+        write_pos(&entry.pos, output)?;
+        write_string(&entry.ipa, output)?;
+        write_var(&entry.var, output)?;
+    }
+
+    Ok(())
+}
+
+fn build_articles<P: AsRef<Path>>(
+    map: &ReadLexMap,
+    keys: &[&String],
+    output: P,
+) -> Result<(), ()> {
+    if let Err(e) = std::fs::create_dir(&output) {
+        if e.kind() != std::io::ErrorKind::AlreadyExists {
+            eprintln!("{}: {}", output.as_ref().to_string_lossy(), e);
+            return Err(());
+        }
+    }
+
+    for (chunk_num, chunk) in keys.chunks(ARTICLES_PER_FILE).enumerate() {
+        let filename = format!(
+            "article-{:04x}.bin",
+            chunk_num * ARTICLES_PER_FILE,
+        );
+        let path = output.as_ref().join(filename);
+
+        if let Err(e) = File::create(&path).and_then(|file| {
+            let mut writer = BufWriter::new(file);
+
+            for &key in chunk.iter() {
+                write_article(&map[key], &mut writer)?;
+            }
+
+            writer.flush()
+        }) {
+            eprintln!("{}: {}", path.to_string_lossy(), e);
+            return Err(());
+        }
+    }
+
+    Ok(())
+}
+
 fn main() -> ExitCode {
     let cli = Cli::parse();
 
@@ -206,6 +326,12 @@ fn main() -> ExitCode {
 
     if build_trie(&map, &keys, &cli.output).is_err() {
         return ExitCode::FAILURE;
+    }
+
+    if let Some(article_dir) = cli.article_dir {
+        if build_articles(&map, &keys, &article_dir).is_err() {
+            return ExitCode::FAILURE;
+        }
     }
 
     ExitCode::SUCCESS
