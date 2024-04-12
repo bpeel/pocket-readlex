@@ -20,8 +20,11 @@
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
               android:orientation="vertical"
-              android:layout_width="wrap_content"
-              android:layout_height="wrap_content">
+              android:layout_width="match_parent"
+              android:layout_height="wrap_content"
+              android:layout_margin="6dip"
+              android:padding="12dip"
+              android:background="@drawable/entry_border">
   <TextView android:id="@+id/entry_translation"
             style="@style/entry_translation"
             android:layout_width="wrap_content"
