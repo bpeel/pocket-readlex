@@ -120,7 +120,7 @@ public class SearchActivity extends AppCompatActivity
                 {
                     EditText et = findViewById(R.id.search_edit);
                     et.setText("");
-                    et.requestFocus();
+                    focusSearchEdit();
                 }
             });
     }
@@ -130,18 +130,7 @@ public class SearchActivity extends AppCompatActivity
     {
         super.onStart();
 
-        View tv = findViewById(R.id.search_edit);
-
-        tv.requestFocus();
-
-        InputMethodManager imm =
-            (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-
-        if (imm != null) {
-            imm.showSoftInput(tv,
-                              0, /* flags */
-                              null /* resultReceiver */);
-        }
+        focusSearchEdit();
     }
 
     @Override
@@ -284,5 +273,21 @@ public class SearchActivity extends AppCompatActivity
                               int before,
                               int count)
     {
+    }
+
+    private void focusSearchEdit()
+    {
+        View tv = findViewById(R.id.search_edit);
+
+        tv.requestFocus();
+
+        InputMethodManager imm =
+            (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+
+        if (imm != null) {
+            imm.showSoftInput(tv,
+                              0, /* flags */
+                              null /* resultReceiver */);
+        }
     }
 }
