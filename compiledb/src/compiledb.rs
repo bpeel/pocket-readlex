@@ -57,7 +57,7 @@ struct ArticleEntry<'a> {
 
 struct ArticleVariant<'a> {
     shavian: &'a str,
-    ipa: &'a str,
+    ipa: String,
     var: u8,
 }
 
@@ -103,6 +103,17 @@ static VARIATIONS: [&'static str; 6] = [
     "RRPVar",
     "SSB",
     "TrapBath",
+];
+
+// The ReadLex data has some special codings in the IPA where the
+// author wanted to leave the possibility of picking a different
+// pronunciation. Lets remap them to concrete values.
+static IPA_REMAP: [(char, &'static str); 5] = [
+    ('I', "ə"),
+    ('R', "(r)"),
+    ('Æ', "æ"),
+    ('Ə', "ə"),
+    ('Ɑ', "ɑ"),
 ];
 
 // The articles are really small. We want to split them into multiple
@@ -260,13 +271,26 @@ fn lookup_pos(pos: &str) -> std::io::Result<Vec<u8>> {
     Ok(result)
 }
 
+fn remap_ipa(ipa: &str) -> String {
+    let mut buf = String::new();
+
+    for ch in ipa.chars() {
+        match IPA_REMAP.binary_search_by_key(&ch, |&(ch, _)| ch) {
+            Ok(index) => buf.push_str(IPA_REMAP[index].1),
+            Err(_) => buf.push(ch),
+        }
+    }
+
+    buf
+}
+
 fn combine_variants(article: &[Entry]) -> std::io::Result<Vec<ArticleEntry>> {
     let mut entries = Vec::<ArticleEntry>::new();
 
     for entry in EntryFilter::new(article.iter()) {
         let variant = ArticleVariant {
             shavian: &entry.shavian,
-            ipa: &entry.ipa,
+            ipa: remap_ipa(&entry.ipa),
             var: lookup_var(&entry.var)?,
         };
 
