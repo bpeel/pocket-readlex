@@ -17,12 +17,18 @@
 package uk.co.busydoingnothing.pocketrl;
 
 import android.app.Activity;
+import android.content.ClipboardManager;
+import android.content.ClipData;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.AssetManager;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.ContextMenu;
 import android.view.LayoutInflater;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
@@ -161,22 +167,22 @@ public class ArticleActivity extends AppCompatActivity
             int nVariants = in.readByte() & 0xff;
 
             for (int variantNum = 0; variantNum < nVariants; variantNum++) {
-                View variantView;
+              VariantView variantView;
 
                 CharSequence variant = readVariant(in);
+                CharSequence shavian = readString(in);
 
-                StringBuilder stringBuf = new StringBuilder();
+                CharSequence translation;
 
                 if (variantNum == 0) {
-                    variantView = layoutInflater
+                    variantView = (VariantView) layoutInflater
                         .inflate(R.layout.first_variant_entry,
                                  layout,
                                  false /* attachToRoot */);
 
-                    stringBuf.append(latin);
-                    stringBuf.append(" → ");
+                    translation = latin + " → " + shavian;
                 } else {
-                    variantView = layoutInflater
+                    variantView = (VariantView) layoutInflater
                         .inflate(R.layout.variant_entry,
                                  layout,
                                  false /* attachToRoot */);
@@ -190,16 +196,20 @@ public class ArticleActivity extends AppCompatActivity
                     variantBuf.append(':');
                     tv = (TextView) variantView.findViewById(R.id.entry_var);
                     tv.setText(variantBuf.toString());
+
+                    translation = shavian;
                 }
 
-                readStringIntoBuffer(in, stringBuf);
                 tv = (TextView) variantView
                     .findViewById(R.id.entry_translation);
-                tv.setText(stringBuf);
+                tv.setText(translation);
 
                 CharSequence ipa = readIpa(in);
                 tv = (TextView) variantView.findViewById(R.id.entry_ipa);
                 tv.setText(ipa);
+
+                registerForContextMenu(variantView);
+                variantView.setSpellings(latin, shavian, ipa);
 
                 variantsView.addView(variantView);
 
@@ -262,6 +272,58 @@ public class ArticleActivity extends AppCompatActivity
         if (reloadQueued) {
             reloadQueued = false;
             loadIntendedArticle();
+        }
+    }
+
+    private void copyText(CharSequence label,
+                          CharSequence text)
+    {
+        ClipboardManager clipboard =
+            (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+
+        clipboard.setPrimaryClip(ClipData.newPlainText(label, text));
+    }
+
+    @Override
+    public boolean onContextItemSelected(MenuItem item)
+    {
+        ContextMenu.ContextMenuInfo info = item.getMenuInfo();
+
+        if (info instanceof VariantView.ContextMenuInfo) {
+            VariantView.ContextMenuInfo variantInfo =
+                (VariantView.ContextMenuInfo) info;
+
+            switch (item.getItemId()) {
+            case R.id.menu_copy_latin:
+                copyText(getResources().getText(R.string.latin_label),
+                         variantInfo.latin);
+                return true;
+
+            case R.id.menu_copy_shavian:
+                copyText(getResources().getText(R.string.shavian_label),
+                         variantInfo.shavian);
+                return true;
+
+            case R.id.menu_copy_ipa:
+                copyText(getResources().getText(R.string.ipa_label),
+                         variantInfo.ipa);
+                return true;
+            }
+        }
+
+        return super.onContextItemSelected(item);
+    }
+
+    @Override
+    public void onCreateContextMenu(ContextMenu menu,
+                                    View v,
+                                    ContextMenu.ContextMenuInfo menuInfo)
+    {
+        super.onCreateContextMenu(menu, v, menuInfo);
+
+        if (v instanceof VariantView) {
+            MenuInflater inflater = getMenuInflater();
+            inflater.inflate(R.menu.variant_menu, menu);
         }
     }
 }

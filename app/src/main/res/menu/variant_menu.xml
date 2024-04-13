@@ -18,17 +18,11 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 -->
 
-<uk.co.busydoingnothing.pocketrl.VariantView
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content">
-  <TextView android:id="@+id/entry_translation"
-            style="@style/entry_translation"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
-  <TextView android:id="@+id/entry_ipa"
-            style="@style/entry_ipa"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content" />
-</uk.co.busydoingnothing.pocketrl.VariantView>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+  <item android:id="@+id/menu_copy_latin"
+        android:title="@string/menu_copy_latin" />
+  <item android:id="@+id/menu_copy_shavian"
+        android:title="@string/menu_copy_shavian" />
+  <item android:id="@+id/menu_copy_ipa"
+        android:title="@string/menu_copy_ipa" />
+</menu>
