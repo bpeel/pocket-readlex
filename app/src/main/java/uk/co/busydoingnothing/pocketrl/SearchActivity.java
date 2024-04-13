@@ -24,6 +24,7 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
@@ -39,6 +40,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.TextView;
 import java.util.Vector;
@@ -62,6 +64,8 @@ public class SearchActivity extends AppCompatActivity
     public static final String TAG = "pocketrlsearch";
 
     private SearchAdapter searchAdapter;
+
+    private boolean clearButtonVisible = false;
 
     @Override
     public void onCreate(Bundle savedInstanceState)
@@ -103,6 +107,22 @@ public class SearchActivity extends AppCompatActivity
               startActivity(intent);
             }
           });
+
+        setUpClearSearchButton();
+    }
+
+    private void setUpClearSearchButton()
+    {
+        View clearButton = findViewById(R.id.clear_search_button);
+
+        clearButton.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v)
+                {
+                    EditText et = findViewById(R.id.search_edit);
+                    et.setText("");
+                    et.requestFocus();
+                }
+            });
     }
 
     @Override
@@ -236,6 +256,18 @@ public class SearchActivity extends AppCompatActivity
     public void afterTextChanged(Editable s)
     {
         searchAdapter.getFilter().filter(s);
+
+        boolean clearButtonShouldBeVisible = s.length() != 0;
+
+        if (clearButtonVisible != clearButtonShouldBeVisible) {
+            clearButtonVisible = clearButtonShouldBeVisible;
+
+            View clearButton = findViewById(R.id.clear_search_button);
+
+            clearButton.setVisibility(clearButtonVisible ?
+                                      View.VISIBLE :
+                                      View.GONE);
+        }
     }
 
     @Override
