@@ -23,7 +23,7 @@ public class Variant {
         "", // RRP
         "", // RRPVar
         "standard southern British",
-        "trap-bath merger",
+        "without trap-bath split",
     };
 
     public static String name(int index)
