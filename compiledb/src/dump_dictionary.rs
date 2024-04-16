@@ -15,240 +15,38 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 mod bit_reader;
+mod dictionary;
 
 use std::process::ExitCode;
-use std::fmt;
-use bit_reader::BitReader;
 
-enum Error {
-    UnexpectedEof,
-    InvalidLengthHeader,
-    OffsetTooLong,
-    InvalidCharacter,
-    ChildIndexOutOfRange,
-}
+fn dump_dictionary(buf: &[u8]) -> Result<(), dictionary::Error> {
+    dictionary::check_length(buf)?;
 
-impl From<std::str::Utf8Error> for Error {
-    fn from(_: std::str::Utf8Error) -> Error {
-        Error::InvalidCharacter
-    }
-}
+    let mut walker = dictionary::DictionaryWalker::new(buf);
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Error::UnexpectedEof => write!(f, "unexpected EOF"),
-            Error::InvalidLengthHeader => write!(f, "invalid length header"),
-            Error::OffsetTooLong => write!(f, "offset too long"),
-            Error::InvalidCharacter => write!(f, "invalid character"),
-            Error::ChildIndexOutOfRange => {
-                write!(f, "child index out of range")
-            },
-        }
-    }
-}
+    while let Some((word, mut variant_pos)) = walker.next()? {
+        print!("{}", word);
 
-struct StackEntry {
-    word_length: usize,
-    pos: usize,
-}
+        loop {
+            let mut variant = dictionary::extract_variant(buf, variant_pos)?;
 
-struct Node {
-    char_offset: usize,
-    data_offset: usize,
-    ch: char,
-    sibling_offset: usize,
-}
+            print!(" ({}, {}, ", variant.payload, variant.article_num);
 
-fn read_sibling_offset(buf: &[u8]) -> Result<(usize, usize), Error> {
-    let mut offset = 0usize;
-    let mut len = 0usize;
+            while let Some(ch) = variant.translation.next() {
+                let ch = ch?;
 
-    for &byte in buf.iter() {
-        if (len + 1) * 7 > usize::BITS as usize {
-            return Err(Error::OffsetTooLong);
+                print!("{}", ch);
+            }
+
+            print!(")");
+
+            match variant.into_next_offset()? {
+                Some(pos) => variant_pos = pos,
+                None => break,
+            }
         }
 
-        offset |= (byte as usize & 0x7f) << (len * 7);
-        len += 1;
-
-        if byte & 0x80 == 0 {
-            return Ok((offset, len));
-        }
-    }
-
-    return Err(Error::UnexpectedEof);
-}
-
-fn read_character(buf: &[u8]) -> Result<(char, usize), Error> {
-    let Some(&byte) = buf.first()
-    else {
-        return Err(Error::UnexpectedEof);
-    };
-
-    let utf8_len = (byte.leading_ones() as usize).max(1);
-
-    let Some(ch_data) = buf.get(0..utf8_len)
-    else {
-        return Err(Error::UnexpectedEof);
-    };
-
-    let ch = std::str::from_utf8(ch_data)?.chars().next().unwrap();
-
-    Ok((ch, utf8_len))
-}
-
-fn read_node(buf: &[u8]) -> Result<Node, Error> {
-    let (sibling_offset, sibling_offset_len) = read_sibling_offset(buf)?;
-
-    let (ch, utf8_len) = read_character(&buf[sibling_offset_len..])?;
-
-    Ok(Node {
-        char_offset: sibling_offset_len,
-        data_offset: sibling_offset_len + utf8_len,
-        ch,
-        sibling_offset,
-    })
-}
-
-fn count_siblings(mut buf: &[u8]) -> Result<usize, Error> {
-    let mut count = 1;
-
-    loop {
-        let (sibling_offset, sibling_offset_len) = read_sibling_offset(buf)?;
-
-        if sibling_offset == 0 {
-            break;
-        }
-
-        buf = &buf[sibling_offset + sibling_offset_len..];
-        count += 1;
-    }
-
-    Ok(count)
-}
-
-fn skip_nodes(buf: &[u8], n_nodes: usize) -> Result<usize, Error> {
-    let mut pos = 0;
-
-    for _ in 0..n_nodes {
-        let (sibling_offset, sibling_offset_len) =
-            read_sibling_offset(&buf[pos..])?;
-        pos += sibling_offset_len + sibling_offset;
-    }
-
-    Ok(pos)
-}
-
-fn dump_path(buf: &[u8], pos: usize) -> Result<usize, Error> {
-    let mut node_pos = 4;
-    let mut reader = BitReader::new(&buf[pos..]);
-
-    loop {
-        let n_children = count_siblings(&buf[node_pos..])?;
-
-        let Some(child_index) = reader.read_bits(
-            (u32::BITS - (n_children as u32 - 1).leading_zeros()) as u8
-        ) else {
-            return Err(Error::UnexpectedEof);
-        };
-
-        if child_index as usize >= n_children {
-            return Err(Error::ChildIndexOutOfRange);
-        }
-
-        node_pos += skip_nodes(&buf[node_pos..], child_index as usize)?;
-
-        // Skip the sibling offset
-        let (_, sibling_offset_len) = read_sibling_offset(&buf[node_pos..])?;
-
-        let (ch, ch_len) =
-            read_character(&buf[node_pos + sibling_offset_len..])?;
-
-        if ch == '\0' {
-            break;
-        }
-
-        print!("{}", ch);
-
-        node_pos += sibling_offset_len + ch_len;
-    }
-
-    Ok(pos + reader.bytes_consumed())
-}
-
-fn dump_payload(buf: &[u8], mut pos: usize) -> Result<(), Error> {
-    loop {
-        let Some(payload_and_article) = buf.get(pos..pos + 3)
-        else {
-            return Err(Error::UnexpectedEof);
-        };
-
-        let payload_byte = payload_and_article[0];
-        let article_num = u16::from_le_bytes(
-            payload_and_article[1..3].try_into().unwrap()
-        );
-
-        print!(" ({}, {}, ", payload_byte & 0x7f, article_num);
-
-        pos = dump_path(buf, pos + 3)?;
-
-        print!(")");
-
-        if payload_byte & 0x80 == 0 {
-            break;
-        }
-    }
-
-    Ok(())
-}
-
-fn check_length(buf: &[u8]) -> Result<(), Error> {
-    if buf.len() < 4 {
-        return Err(Error::UnexpectedEof);
-    }
-
-    let len = u32::from_le_bytes(buf[0..4].try_into().unwrap());
-
-    if len as usize != buf.len() - 4 {
-        Err(Error::InvalidLengthHeader)
-    } else {
-        Ok(())
-    }
-}
-
-fn dump_dictionary(buf: &[u8]) -> Result<(), Error> {
-    check_length(buf)?;
-
-    let mut word = String::new();
-    let mut stack = vec![StackEntry { word_length: 0, pos: 4 }];
-
-    while let Some(entry) = stack.pop() {
-        word.truncate(entry.word_length);
-
-        let node = read_node(&buf[entry.pos..])?;
-
-        if node.sibling_offset > 0 {
-            stack.push(StackEntry {
-                word_length: word.len(),
-                pos: entry.pos + node.char_offset + node.sibling_offset,
-            });
-        }
-
-        if node.ch == '\0' {
-            print!("{}", word);
-
-            dump_payload(buf, entry.pos + node.data_offset)?;
-
-            println!();
-        } else {
-            word.push(node.ch);
-
-            stack.push(StackEntry {
-                word_length: word.len(),
-                pos: entry.pos + node.data_offset,
-            });
-        }
+        println!();
     }
 
     Ok(())
