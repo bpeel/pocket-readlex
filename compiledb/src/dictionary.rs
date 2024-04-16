@@ -272,10 +272,14 @@ pub struct DictionaryWalker<'a> {
 
 impl<'a> DictionaryWalker<'a> {
     pub fn new(buf: &[u8]) -> DictionaryWalker {
+        Self::start_from(buf, 4)
+    }
+
+    pub fn start_from(buf: &[u8], pos: usize) -> DictionaryWalker {
         DictionaryWalker {
             buf,
             word: String::new(),
-            stack: vec![StackEntry { word_length: 0, pos: 4 }],
+            stack: vec![StackEntry { word_length: 0, pos }],
         }
     }
 
@@ -309,4 +313,49 @@ impl<'a> DictionaryWalker<'a> {
             });
         }
     }
+}
+
+fn find_sibling_for_character(
+    buf: &[u8],
+    mut pos: usize,
+    ch: char,
+) -> Result<Option<usize>, Error> {
+    loop {
+        let Some(buf) = buf.get(pos..)
+        else {
+            return Err(Error::UnexpectedEof);
+        };
+
+        let node = read_node(buf)?;
+
+        if node.ch == ch {
+            return Ok(Some(pos + node.data_offset));
+        } else if node.sibling_offset == 0 {
+            return Ok(None);
+        }
+
+        pos += node.char_offset + node.sibling_offset;
+    }
+}
+
+// Walks through the trie using the path for the given prefix. If the
+// path is found then it returns the offset of the first child after
+// the prefix. Otherwise it returns None.
+pub fn find_prefix(buf: &[u8], prefix: &str) -> Result<Option<usize>, Error> {
+    let mut pos = 4;
+
+    for ch in prefix.chars() {
+        // The dictionary uses '\0' as a special marker so we can’t
+        // find prefixes that contain it.
+        if ch == '\0' {
+            return Ok(None);
+        }
+
+        pos = match find_sibling_for_character(buf, pos, ch)? {
+            Some(pos) => pos,
+            None => return Ok(None),
+        }
+    }
+
+    Ok(Some(pos))
 }

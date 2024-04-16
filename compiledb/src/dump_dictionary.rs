@@ -18,13 +18,40 @@ mod bit_reader;
 mod dictionary;
 
 use std::process::ExitCode;
+use clap::Parser;
+use std::ffi::OsString;
 
-fn dump_dictionary(buf: &[u8]) -> Result<(), dictionary::Error> {
+#[derive(Parser)]
+#[command(name = "dump-dictionary")]
+struct Cli {
+    #[arg(short, long, value_name = "STR")]
+    prefix: Option<String>,
+    dictionaries: Vec<OsString>,
+}
+
+fn dump_dictionary(
+    buf: &[u8],
+    prefix: Option<&str>,
+) -> Result<(), dictionary::Error> {
     dictionary::check_length(buf)?;
 
-    let mut walker = dictionary::DictionaryWalker::new(buf);
+    let mut walker = match prefix {
+        Some(prefix) => {
+            let Some(start_pos) = dictionary::find_prefix(buf, prefix)?
+            else {
+                return Ok(());
+            };
+
+            dictionary::DictionaryWalker::start_from(buf, start_pos)
+        },
+        None => dictionary::DictionaryWalker::new(buf)
+    };
 
     while let Some((word, mut variant_pos)) = walker.next()? {
+        if let Some(prefix) = prefix {
+            print!("{}", prefix);
+        }
+
         print!("{}", word);
 
         loop {
@@ -53,7 +80,9 @@ fn dump_dictionary(buf: &[u8]) -> Result<(), dictionary::Error> {
 }
 
 fn main() -> ExitCode {
-    for arg in std::env::args_os().skip(1) {
+    let cli = Cli::parse();
+
+    for arg in cli.dictionaries.iter() {
         let buf = match std::fs::read(&arg) {
             Ok(buf) => buf,
             Err(e) => {
@@ -62,7 +91,7 @@ fn main() -> ExitCode {
             },
         };
 
-        if let Err(e) = dump_dictionary(&buf) {
+        if let Err(e) = dump_dictionary(&buf, cli.prefix.as_deref()) {
             eprintln!("{}: {}", arg.to_string_lossy(), e);
             return ExitCode::FAILURE;
         }
