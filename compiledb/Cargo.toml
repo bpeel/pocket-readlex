@@ -15,6 +15,10 @@ path = "src/compiledb.rs"
 name = "dump-dictionary"
 path = "src/dump_dictionary.rs"
 
+[[bin]]
+name = "transliterate"
+path = "src/transliterate.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
