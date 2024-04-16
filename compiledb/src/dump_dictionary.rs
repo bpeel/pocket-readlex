@@ -26,7 +26,37 @@ use std::ffi::OsString;
 struct Cli {
     #[arg(short, long, value_name = "STR")]
     prefix: Option<String>,
+    #[arg(short, long, value_name = "WORD", conflicts_with = "prefix")]
+    exact_word: Option<String>,
     dictionaries: Vec<OsString>,
+}
+
+fn dump_variants(
+    buf: &[u8],
+    mut variant_pos: usize,
+) -> Result<(), dictionary::Error> {
+    loop {
+        let mut variant = dictionary::extract_variant(buf, variant_pos)?;
+
+        print!(" ({}, {}, ", variant.payload, variant.article_num);
+
+        while let Some(ch) = variant.translation.next() {
+            let ch = ch?;
+
+            print!("{}", ch);
+        }
+
+        print!(")");
+
+        match variant.into_next_offset()? {
+            Some(pos) => variant_pos = pos,
+            None => break,
+        }
+    }
+
+    println!();
+
+    Ok(())
 }
 
 fn dump_dictionary(
@@ -47,33 +77,14 @@ fn dump_dictionary(
         None => dictionary::DictionaryWalker::new(buf)
     };
 
-    while let Some((word, mut variant_pos)) = walker.next()? {
+    while let Some((word, variant_pos)) = walker.next()? {
         if let Some(prefix) = prefix {
             print!("{}", prefix);
         }
 
         print!("{}", word);
 
-        loop {
-            let mut variant = dictionary::extract_variant(buf, variant_pos)?;
-
-            print!(" ({}, {}, ", variant.payload, variant.article_num);
-
-            while let Some(ch) = variant.translation.next() {
-                let ch = ch?;
-
-                print!("{}", ch);
-            }
-
-            print!(")");
-
-            match variant.into_next_offset()? {
-                Some(pos) => variant_pos = pos,
-                None => break,
-            }
-        }
-
-        println!();
+        dump_variants(buf, variant_pos)?;
     }
 
     Ok(())
@@ -91,7 +102,27 @@ fn main() -> ExitCode {
             },
         };
 
-        if let Err(e) = dump_dictionary(&buf, cli.prefix.as_deref()) {
+        if let Err(e) = {
+            if let Some(ref word) = cli.exact_word {
+                match dictionary::find_word(&buf, word) {
+                    Ok(Some(pos)) => {
+                        print!("{}", word);
+                        dump_variants(&buf, pos)
+                    },
+                    Ok(None) => {
+                        eprintln!(
+                            "{}: “{}” not found",
+                            arg.to_string_lossy(),
+                            word,
+                        );
+                        return ExitCode::FAILURE;
+                    },
+                    Err(e) => Err(e),
+                }
+            } else {
+                dump_dictionary(&buf, cli.prefix.as_deref())
+            }
+        } {
             eprintln!("{}: {}", arg.to_string_lossy(), e);
             return ExitCode::FAILURE;
         }

@@ -359,3 +359,12 @@ pub fn find_prefix(buf: &[u8], prefix: &str) -> Result<Option<usize>, Error> {
 
     Ok(Some(pos))
 }
+
+// Finds the exact word in the dictionary. If it is found then the
+// offset of the first variant is returned.
+pub fn find_word(buf: &[u8], word: &str) -> Result<Option<usize>, Error> {
+    match find_prefix(buf, word)? {
+        Some(pos) => find_sibling_for_character(buf, pos, '\0'),
+        None => Ok(None),
+    }
+}
