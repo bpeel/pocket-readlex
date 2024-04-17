@@ -7,7 +7,11 @@ android {
 
     defaultConfig {
         applicationId "uk.co.busydoingnothing.pocketrl"
+
+        // If you change this don’t forget to change the linker in
+        // build-lib-cargo.sh as well
         minSdkVersion 21
+
         targetSdkVersion 33
         versionCode 1
         versionName "0.1"

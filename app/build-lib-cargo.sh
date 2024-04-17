@@ -39,6 +39,17 @@ else
     mode="debug"
 fi
 
+linker_target="$(echo "$target" | sed s/armv7-/armv7a-/g)"
+
+linker="$(dirname "$4")/${linker_target}21-clang"
+
+if ! test -f "$linker"; then
+    echo "Missing linker $linker" >&1
+    exit 1
+fi
+
+export RUSTFLAGS=-Clinker="$linker"
+
 cargo "${args[@]}"
 
 cp "$src_dir/../compiledb/target/$target/$mode/libcompiledb.so" "$1"

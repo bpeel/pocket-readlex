@@ -9,5 +9,5 @@ add_custom_command(
   TARGET compiledb
   POST_BUILD
   COMMAND ${CMAKE_SOURCE_DIR}/build-lib-cargo.sh
-  ARGS $<TARGET_FILE:compiledb> ${CMAKE_BUILD_TYPE} ${CMAKE_ANDROID_ARCH}
+  ARGS $<TARGET_FILE:compiledb> ${CMAKE_BUILD_TYPE} ${CMAKE_ANDROID_ARCH} ${CMAKE_C_COMPILER}
 )
