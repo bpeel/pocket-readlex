@@ -21,7 +21,19 @@ git submodule update --init
 The compiledb program will be built as part of the app build in order
 to generate the dictionary data. It is written in Rust, so you need to
 make sure you have a [Rust compiler](https://rustup.rs/) for the host
-machine installed.
+machine installed. There is also a native library written in Rust used
+by the app so you will also need the 4 compiler targets that Android
+uses. You can install them with:
+
+```bash
+rustup target install \
+        aarch64-linux-android \
+        armv7-linux-androideabi \
+        i686-linux-android \
+        x86_64-linux-android
+```
+
+You will also need the NDK installed.
 
 Assuming you have the Android SDK installed correctly, you can build
 the app either with Android Studio or the command line as follows.
