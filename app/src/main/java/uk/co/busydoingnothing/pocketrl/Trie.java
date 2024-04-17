@@ -354,6 +354,11 @@ public class Trie
         return numResults;
     }
 
+    public byte[] getData()
+    {
+        return data;
+    }
+
     // Test program
     public static void main(String[] args)
         throws IOException
