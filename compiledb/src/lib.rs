@@ -142,7 +142,7 @@ impl<'local> StringBuilderWriter<'local> {
 
 impl<'local> fmt::Write for StringBuilderWriter<'local> {
     fn write_char(&mut self, ch: char) -> fmt::Result {
-        unsafe {
+        let builder = unsafe {
             self.env.call_method_unchecked(
                 &self.output,
                 self.append_code_point_method,
@@ -151,7 +151,16 @@ impl<'local> fmt::Write for StringBuilderWriter<'local> {
                     jvalue { i: ch as i32 },
                 ],
             )
-        }.map_err(|_| fmt::Error).map(|_| ())
+        }.map_err(|_| fmt::Error)?;
+
+        // The method returns another local reference to the string
+        // builder. If we don’t destroy it immediately we will very
+        // quickly fill up the local reference table.
+        if let Ok(object) = builder.l() {
+            self.env.auto_local(object);
+        }
+
+        Ok(())
     }
 
     fn write_str(&mut self, s: &str) -> fmt::Result {
