@@ -117,7 +117,7 @@ public class TransliterationActivity extends AppCompatActivity
         lastTransliterationTime = now + delay;
         transliterationQueued = true;
 
-        uiHandler.postDelayed(new Runnable() {
+        uiHandler.postAtTime(new Runnable() {
                 public void run()
                 {
                     transliterationQueued = false;
@@ -130,7 +130,7 @@ public class TransliterationActivity extends AppCompatActivity
                 }
             },
             transliterationToken,
-            delay);
+            lastTransliterationTime);
     }
 
     @Override
