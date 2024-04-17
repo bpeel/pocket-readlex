@@ -61,6 +61,7 @@ use std::num::NonZeroUsize;
 
 #[derive(PartialOrd, Ord, Eq, PartialEq)]
 struct Translation {
+    sort_position: u32,
     value: String,
     payload_byte: u8,
     article_num: u16,
@@ -159,6 +160,7 @@ impl TrieBuilder {
         translation: String,
         payload_byte: u8,
         article_num: u16,
+        sort_position: u32,
     ) {
         assert!(payload_byte < 0x80);
 
@@ -202,6 +204,7 @@ impl TrieBuilder {
                     payload_byte,
                     article_num,
                     value: translation,
+                    sort_position,
                 });
                 break;
             }
@@ -214,18 +217,21 @@ impl TrieBuilder {
         translation: &str,
         payload_byte: u8,
         article_num: u16,
+        sort_position: u32,
     ) {
         self.add_word_one_direction(
             word,
             translation.to_string(),
             payload_byte,
             article_num,
+            sort_position,
         );
         self.add_word_one_direction(
             translation,
             word.to_string(),
             payload_byte,
             article_num,
+            sort_position,
         );
     }
 
@@ -581,7 +587,7 @@ mod test {
     fn duplicates() {
         let mut builder = TrieBuilder::new();
 
-        builder.add_word("abc", "bbc", 0x7e, 0x1234);
+        builder.add_word("abc", "bbc", 0x7e, 0x1234, 0);
 
         let mut dictionary = Vec::<u8>::new();
 

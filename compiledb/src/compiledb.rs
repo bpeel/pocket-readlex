@@ -47,6 +47,7 @@ struct Entry {
     pos: String,
     ipa: String,
     var: String,
+    freq: u32,
 }
 
 struct ArticleEntry<'a> {
@@ -220,6 +221,8 @@ fn build_trie<P: AsRef<Path>>(
                 &entry.latin,
                 pos as u8,
                 article_num as u16,
+                // Sort by decreasing frequency
+                u32::MAX - entry.freq,
             );
         }
     }
