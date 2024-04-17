@@ -26,7 +26,9 @@ import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.text.method.ScrollingMovementMethod;
+import android.util.Log;
 import android.widget.TextView;
+import java.io.IOException;
 
 public class TransliterationActivity extends AppCompatActivity
     implements TextWatcher
@@ -37,12 +39,20 @@ public class TransliterationActivity extends AppCompatActivity
     private Handler uiHandler;
     private Object transliterationToken = new String("transliterationToken");
     private boolean transliterationQueued = false;
+    private Trie trie;
 
     @Override
     public void onCreate(Bundle savedInstanceState)
     {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.transliteration);
+
+        try {
+            trie = TrieCache.getTrie(this);
+        }
+        catch (IOException e) {
+            Log.wtf("Error while loading an asset", e);
+        }
 
         TextView tv = (TextView) findViewById(R.id.transliteration_source);
         tv.addTextChangedListener(this);
@@ -141,22 +151,9 @@ public class TransliterationActivity extends AppCompatActivity
 
     private CharSequence transliterate(String source)
     {
-        int length = source.length();
         StringBuilder buf = new StringBuilder();
 
-        for (int i = 0;
-             i < length;
-             i = source.offsetByCodePoints(i, 1)) {
-            int ch = source.codePointAt(i);
-
-            if ((i & 1) == 0) {
-                ch = Character.toLowerCase(ch);
-            } else {
-                ch = Character.toUpperCase(ch);
-            }
-
-            buf.appendCodePoint(ch);
-        }
+        Transliterater.transliterate(trie.getData(), source, buf);
 
         return buf;
     }
