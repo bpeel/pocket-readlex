@@ -24,8 +24,11 @@
   <string name="no_results">No results found</string>
   <string name="type_to_filter">Type something to search</string>
   <string name="context_menu_search">Search ReadLex</string>
+  <string name="transliteration">Transliteration</string>
+  <string name="type_to_transliterate">Type something to transliterate</string>
   <string name="close">Close</string>
   <string name="menu_about">About</string>
+  <string name="menu_transliteration">Transliteration</string>
   <string name="menu_copy_latin">Copy Latin text</string>
   <string name="menu_copy_shavian">Copy Shavian text</string>
   <string name="menu_copy_ipa">Copy IPA</string>

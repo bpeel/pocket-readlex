@@ -145,8 +145,13 @@ public class SearchActivity extends AppCompatActivity
     @Override
     public boolean onOptionsItemSelected(MenuItem item)
     {
-        if (item.getItemId() == R.id.menu_about) {
+        int itemId = item.getItemId();
+
+        if (itemId == R.id.menu_about) {
             showDialog(DIALOG_ABOUT);
+            return true;
+        } else if (itemId == R.id.menu_transliteration) {
+            startActivity(new Intent(this, TransliterationActivity.class));
             return true;
         }
 

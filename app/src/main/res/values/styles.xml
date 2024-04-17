@@ -44,4 +44,12 @@
          parent="@android:style/TextAppearance.Medium">
     <item name="android:textStyle">italic</item>
   </style>
+  <style name="transliteration_source"
+         parent="@android:style/TextAppearance.Medium">
+    <item name="android:fontFamily">@font/notosans_latin_shavian</item>
+  </style>
+  <style name="transliteration_dest"
+         parent="@android:style/TextAppearance.Medium">
+    <item name="android:fontFamily">@font/notosans_latin_shavian</item>
+  </style>
 </resources>
