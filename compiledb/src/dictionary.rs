@@ -17,6 +17,7 @@
 use super::bit_reader::BitReader;
 use std::fmt;
 
+#[derive(Debug)]
 pub enum Error {
     UnexpectedEof,
     InvalidLengthHeader,
