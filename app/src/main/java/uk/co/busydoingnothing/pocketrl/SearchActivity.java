@@ -151,7 +151,9 @@ public class SearchActivity extends AppCompatActivity
             showDialog(DIALOG_ABOUT);
             return true;
         } else if (itemId == R.id.menu_transliteration) {
-            startActivity(new Intent(this, TransliterationActivity.class));
+            Intent intent = new Intent(this, TransliterationActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+            startActivity(intent);
             return true;
         }
 
