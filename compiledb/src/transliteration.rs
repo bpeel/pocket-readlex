@@ -99,7 +99,9 @@ impl<'a, I: IntoIterator<Item = char>, O: Write> Transliterater<'a, I, O> {
     fn run(&mut self) -> Result<(), Error> {
         while let Some(ch) = self.input.next() {
             if ch.is_alphabetic() {
-                self.buf.push(ch);
+                for ch in ch.to_lowercase() {
+                    self.buf.push(ch);
+                }
             } else {
                 if !self.buf.is_empty() &&
                     "'-’".chars().find(|&x| x == ch).is_some() {
