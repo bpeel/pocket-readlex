@@ -19,6 +19,7 @@ use super::dictionary;
 use std::fmt;
 use fmt::Write;
 
+#[derive(Debug)]
 pub enum Error {
     Dictionary(dictionary::Error),
     Format(std::fmt::Error),
