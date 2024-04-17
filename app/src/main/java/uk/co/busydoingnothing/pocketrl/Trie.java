@@ -108,11 +108,15 @@ public class Trie
         readAll(dataStream, lengthBytes, 0, lengthBytes.length);
         int length = extractInt(lengthBytes, 0);
 
-        // Create a byte array big enough to hold the rest of the file
-        data = new byte[length];
+        // Create a byte array big enough to hold that and the rest of
+        // the file
+        data = new byte[length + 4];
+
+        // Copy the lengh bytes in
+        System.arraycopy(lengthBytes, 0, data, 0, 4);
 
         // Read the rest of the data
-        readAll(dataStream, data, 0, length);
+        readAll(dataStream, data, 4, length);
     }
 
     private int findSiblingForCharacter(int ch, int pos) {
@@ -149,7 +153,7 @@ public class Trie
     // after the prefix. Otherwise it returns -1.
     private int findPrefix(CharSequence prefix)
     {
-        int pos = 0;
+        int pos = 4;
         int length = prefix.length();
 
         for (int stringPos = 0;
@@ -216,7 +220,7 @@ public class Trie
     private void walkPath(BitReader reader,
                           StringBuilder stringBuf)
     {
-        int pos = 0;
+        int pos = 4;
 
         while (true) {
             int nSiblings = countSiblings(pos);
