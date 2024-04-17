@@ -5,6 +5,7 @@ local.properties
 .idea
 .DS_Store
 .externalNativeBuild
+/app/.cxx
 
 /app/src/main/assets/dictionary.bin
 /app/src/main/assets/articles
