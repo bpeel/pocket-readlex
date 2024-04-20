@@ -339,13 +339,13 @@ fn find_sibling_for_character(
     }
 }
 
-// Walks through the trie using the path for the given prefix. If the
-// path is found then it returns the offset of the first child after
-// the prefix. Otherwise it returns None.
-pub fn find_prefix(buf: &[u8], prefix: &str) -> Result<Option<usize>, Error> {
+pub fn find_prefix_iter<T: IntoIterator<Item = char>>(
+    buf: &[u8],
+    prefix: T,
+) -> Result<Option<usize>, Error> {
     let mut pos = 4;
 
-    for ch in prefix.chars() {
+    for ch in prefix {
         // The dictionary uses '\0' as a special marker so we can’t
         // find prefixes that contain it.
         if ch == '\0' {
@@ -359,6 +359,13 @@ pub fn find_prefix(buf: &[u8], prefix: &str) -> Result<Option<usize>, Error> {
     }
 
     Ok(Some(pos))
+}
+
+// Walks through the trie using the path for the given prefix. If the
+// path is found then it returns the offset of the first child after
+// the prefix. Otherwise it returns None.
+pub fn find_prefix(buf: &[u8], prefix: &str) -> Result<Option<usize>, Error> {
+    find_prefix_iter(buf, prefix.chars())
 }
 
 // Finds the exact word in the dictionary. If it is found then the
