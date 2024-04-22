@@ -171,13 +171,14 @@ pub fn transliterate<I: IntoIterator<Item = char>, O: Write>(
 mod test {
     use super::*;
 
-    static DICTIONARY: [u8; 48] = [
+    static DICTIONARY: [u8; 58] = [
         // Length
         0, 0, 0, 0,
         7, b'a', 0, b'\0', 0, 0, 0, 1,
         7, b'b', 0, b'\0', 0, 0, 0, 0,
         7, b'c', 0, b'\0', 0, 0, 0, 3,
-        7, b'd', 0, b'\0', 0, 0, 0, 2,
+        17, b'd', 5, b'\0', 0, 0, 0, 2,
+        0, b'\'', 0, b'b', 0, b'\0', 0, 0, 0, 1,
         0, b'e', 0, b'-', 0, b'f', 0, b'\0', 0, 0, 0, 1,
     ];
 
@@ -198,5 +199,18 @@ mod test {
         // Hyphenated words that are in the dictionary should use
         // their dictionary translation.
         assert_eq!(&transliterate_to_string("e-f").unwrap(), "b");
+    }
+
+    #[test]
+    fn apostrophes() {
+        // Apostrophes should be part of the word if they are followed
+        // by a letter.
+        assert_eq!(&transliterate_to_string("d'b").unwrap(), "b");
+        assert_eq!(&transliterate_to_string("d’b").unwrap(), "b");
+        // Otherwise no.
+        assert_eq!(&transliterate_to_string("d' b").unwrap(), "c' a");
+        assert_eq!(&transliterate_to_string("d’ b").unwrap(), "c’ a");
+        assert_eq!(&transliterate_to_string("d'").unwrap(), "c'");
+        assert_eq!(&transliterate_to_string("d’").unwrap(), "c’");
     }
 }
