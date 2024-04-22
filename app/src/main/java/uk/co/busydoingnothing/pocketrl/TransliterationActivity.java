@@ -152,6 +152,7 @@ public class TransliterationActivity extends AppCompatActivity
                     int id = R.id.transliteration_source;
                     TextView tv = (TextView) findViewById(id);
                     String text = tv.getText().toString();
+                    workerHandler.removeMessages(0);
                     Message msg = workerHandler.obtainMessage(0, // what
                                                               text);
                     workerHandler.sendMessage(msg);
