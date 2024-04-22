@@ -29,6 +29,15 @@ public class Compiledb {
                                             CharSequence input,
                                             StringBuilder output);
 
+    // Searches the trie for words that begin with ‘prefix’. The
+    // results array is filled with the results. If more results are
+    // available than the length of the results array then they are
+    // ignored. If fewer are available then the remainder of the array
+    // is untouched. The method returns the number of results found.
+    public static native int search(byte[] dictionary,
+                                    CharSequence prefix,
+                                    SearchResult[] results);
+
     // Test program
     public static void main(String[] args)
         throws IOException
@@ -40,12 +49,12 @@ public class Compiledb {
         }
 
         FileInputStream inputStream = new FileInputStream(args[0]);
-        Trie trie = new Trie(inputStream);
+        byte[] trie = Trie.load(inputStream);
 
         for (int i = 1; i < args.length; i++) {
             StringBuilder builder = new StringBuilder();
 
-            transliterate(trie.getData(), args[i], builder);
+            transliterate(trie, args[i], builder);
 
             System.out.println(builder);
         }

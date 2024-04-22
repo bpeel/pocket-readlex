@@ -43,7 +43,7 @@ public class TransliterationActivity extends AppCompatActivity
     private Handler uiHandler;
     private Object transliterationToken = new String("transliterationToken");
     private boolean transliterationQueued = false;
-    private Trie trie;
+    private byte[] trie;
 
     @Override
     public void onCreate(Bundle savedInstanceState)
@@ -181,7 +181,7 @@ public class TransliterationActivity extends AppCompatActivity
     {
         StringBuilder buf = new StringBuilder();
 
-        Compiledb.transliterate(trie.getData(), source, buf);
+        Compiledb.transliterate(trie, source, buf);
 
         return buf;
     }

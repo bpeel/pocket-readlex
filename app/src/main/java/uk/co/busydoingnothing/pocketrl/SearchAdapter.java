@@ -64,8 +64,10 @@ public class SearchAdapter extends BaseAdapter
         resultData.results = new SearchResult[MAX_RESULTS];
 
         try {
-            Trie trie = TrieCache.getTrie(context);
-            int numResults = trie.search(filterString, resultData.results);
+            byte[] trie = TrieCache.getTrie(context);
+            int numResults = Compiledb.search(trie,
+                                              filterString,
+                                              resultData.results);
 
             resultData.count = numResults;
             return resultData;

@@ -24,14 +24,14 @@ import java.util.LinkedList;
 
 public class TrieCache
 {
-    private static Trie cachedTrie;
+    private static byte[] cachedTrie;
 
-    public static synchronized Trie getTrie(Context context)
+    public static synchronized byte[] getTrie(Context context)
         throws IOException
     {
         if (cachedTrie == null) {
             InputStream input = context.getAssets().open("dictionary.bin");
-            cachedTrie = new Trie(input);
+            cachedTrie = Trie.load(input);
         }
 
         return cachedTrie;
