@@ -76,21 +76,54 @@ impl<'a, I: IntoIterator<Item = char>, O: Write> Transliterater<'a, I, O> {
         Ok(())
     }
 
-    fn flush_buf(&mut self) -> Result<(), Error> {
-        if !self.buf.is_empty() {
-            match dictionary::find_word(self.dictionary, &self.buf)? {
-                Some(variant_pos) => {
-                    let variant =
-                        dictionary::extract_variant(
-                            self.dictionary,
-                            variant_pos
-                        )?;
-                    self.write_path(variant.translation)?;
-                },
-                None => self.output.write_str(&self.buf)?,
+    fn write_variant(&mut self, variant_pos: usize) -> Result<(), Error> {
+        let variant = dictionary::extract_variant(
+            self.dictionary,
+            variant_pos,
+        )?;
+        self.write_path(variant.translation)
+    }
+
+    fn write_hyphenated_parts(&mut self, word: &str) -> Result<(), Error> {
+        let mut parts = word.split('-').peekable();
+
+        // If there are no hyphens then don’t bother looking up the word again
+        if parts.peek().is_none() {
+            self.output.write_str(word)?;
+            return Ok(());
+        }
+
+        while let Some(part) = parts.next() {
+            match dictionary::find_word(self.dictionary, part)? {
+                Some(variant_pos) => self.write_variant(variant_pos)?,
+                None => self.output.write_str(part)?,
             }
 
-            self.buf.clear();
+            if parts.peek().is_some() {
+                self.output.write_char('-')?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn flush_buf(&mut self) -> Result<(), Error> {
+        if !self.buf.is_empty() {
+            // Take the buffer so we can have a mutable reference to
+            // it even while we call mutable methods on self. The
+            // default String shouldn’t allocate so this shouldn’t
+            // really cost anything.
+            let mut buf = std::mem::take(&mut self.buf);
+
+            match dictionary::find_word(self.dictionary, &buf)? {
+                Some(variant_pos) => self.write_variant(variant_pos)?,
+                None => self.write_hyphenated_parts(&buf)?,
+            }
+
+            buf.clear();
+            // Put the buffer back so it can reuse the memory that it
+            // probably reallocated
+            self.buf = buf;
         }
 
         Ok(())
@@ -132,4 +165,38 @@ pub fn transliterate<I: IntoIterator<Item = char>, O: Write>(
     output: O,
 ) -> Result<(), Error> {
     Transliterater::new(dictionary, input, output).run()
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    static DICTIONARY: [u8; 48] = [
+        // Length
+        0, 0, 0, 0,
+        7, b'a', 0, b'\0', 0, 0, 0, 1,
+        7, b'b', 0, b'\0', 0, 0, 0, 0,
+        7, b'c', 0, b'\0', 0, 0, 0, 3,
+        7, b'd', 0, b'\0', 0, 0, 0, 2,
+        0, b'e', 0, b'-', 0, b'f', 0, b'\0', 0, 0, 0, 1,
+    ];
+
+    fn transliterate_to_string(input: &str) -> Result<String, Error> {
+        let mut output = String::new();
+        transliterate(&DICTIONARY[..], input.chars(), &mut output)?;
+        Ok(output)
+    }
+
+    #[test]
+    fn hyphens() {
+        assert_eq!(&transliterate_to_string("a").unwrap(), "b");
+        assert_eq!(&transliterate_to_string("c").unwrap(), "d");
+        // Fallback for a word that isn’t in the dictionary, it’s
+        // individual parts should be translated instead.
+        assert_eq!(&transliterate_to_string("a-c").unwrap(), "b-d");
+        assert_eq!(&transliterate_to_string("a-c-d-b").unwrap(), "b-d-c-a");
+        // Hyphenated words that are in the dictionary should use
+        // their dictionary translation.
+        assert_eq!(&transliterate_to_string("e-f").unwrap(), "b");
+    }
 }
