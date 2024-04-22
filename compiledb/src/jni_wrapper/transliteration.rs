@@ -88,7 +88,7 @@ fn run_transliteration<'local>(
 }
 
 #[no_mangle]
-pub extern "system" fn Java_uk_co_busydoingnothing_pocketrl_Transliterater_transliterate<'local>(
+pub extern "system" fn Java_uk_co_busydoingnothing_pocketrl_Compiledb_transliterate<'local>(
     env: JNIEnv<'local>,
     _class: JClass<'local>,
     dictionary: JByteArray<'local>,

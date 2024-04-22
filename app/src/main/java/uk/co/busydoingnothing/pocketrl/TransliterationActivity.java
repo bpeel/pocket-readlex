@@ -181,7 +181,7 @@ public class TransliterationActivity extends AppCompatActivity
     {
         StringBuilder buf = new StringBuilder();
 
-        Transliterater.transliterate(trie.getData(), source, buf);
+        Compiledb.transliterate(trie.getData(), source, buf);
 
         return buf;
     }

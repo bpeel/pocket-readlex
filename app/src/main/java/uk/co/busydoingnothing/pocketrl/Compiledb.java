@@ -20,7 +20,7 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.IOException;
 
-public class Transliterater {
+public class Compiledb {
     static {
         System.loadLibrary("compiledb");
     }
@@ -34,7 +34,7 @@ public class Transliterater {
         throws IOException
     {
         if (args.length < 2) {
-            System.err.println("Usage: java Transliterater <dictionary> " +
+            System.err.println("Usage: java Compiledb <dictionary> " +
                                "<text>...");
             System.exit(1);
         }
