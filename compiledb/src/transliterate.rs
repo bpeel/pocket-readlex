@@ -21,7 +21,7 @@ mod transliteration;
 use std::process::ExitCode;
 use clap::Parser;
 use std::ffi::OsString;
-use std::io::{self, BufRead, BufWriter};
+use std::io::{self, BufRead, LineWriter};
 use std::fmt;
 
 #[derive(Parser)]
@@ -85,20 +85,20 @@ impl<I: BufRead> CharRead<I> {
 }
 
 struct Utf8Write<T: io::Write> {
-    output: BufWriter<T>,
+    output: LineWriter<T>,
 }
 
 impl<T: io::Write> Utf8Write<T> {
     fn new(output: T) -> Utf8Write<T> {
         Utf8Write {
-            output: BufWriter::new(output)
+            output: LineWriter::new(output)
         }
     }
 }
 
 impl<T: io::Write> fmt::Write for Utf8Write<T> {
     fn write_str(&mut self, s: &str) -> fmt::Result {
-        <BufWriter<T> as io::Write>::write_all(&mut self.output, s.as_bytes())
+        <LineWriter<T> as io::Write>::write_all(&mut self.output, s.as_bytes())
             .map_err(|_| fmt::Error)
     }
 }
@@ -139,7 +139,7 @@ fn run_transliteration(
 
     match input.error {
         None => {
-            <BufWriter<_> as std::io::Write>::flush(&mut output.output)?;
+            <LineWriter<_> as std::io::Write>::flush(&mut output.output)?;
             Ok(())
         },
         Some(e) => Err(e.into()),
