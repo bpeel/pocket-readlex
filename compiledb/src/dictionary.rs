@@ -231,6 +231,10 @@ impl<'a> Variant<'a> {
 
         Ok(Some(self.pos + self.translation.reader.bytes_consumed() + 3))
     }
+
+    pub fn is_last(&self) -> bool {
+        self.is_last
+    }
 }
 
 pub fn extract_variant(buf: &[u8], pos: usize) -> Result<Variant, Error> {
