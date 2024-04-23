@@ -130,6 +130,17 @@ impl<'a, I: IntoIterator<Item = char>, O: Write> Transliterater<'a, I, O> {
     ) -> Result<(), Error> {
         let capitalize = self.should_capitalize(&variant)?;
         self.last_pos = Some(variant.payload);
+
+        // Write a namer dot if it’s a proper noun and we’re
+        // transliterating to Shavian
+        if variant.payload == parts_of_speech::NP0 &&
+            variant.translation.clone().next()
+            .map(|ch| ch.map(|ch| is_shavian(ch)))
+            .unwrap_or(Ok(false))?
+        {
+            self.output.write_char('·')?;
+        }
+
         self.write_path(variant.translation, capitalize)
     }
 
@@ -283,6 +294,10 @@ fn next_is_alphabetic<I>(iter: &mut std::iter::Peekable<I>) -> bool
         .unwrap_or(false)
 }
 
+fn is_shavian(ch: char) -> bool {
+    ch >= '𐑐' && ch <= '𐑿'
+}
+
 pub fn transliterate<I: IntoIterator<Item = char>, O: Write>(
     dictionary: &[u8],
     input: I,
@@ -373,6 +388,14 @@ mod test {
         assert_eq!(
             &transliterate_to_string("𐑐𐑨 𐑐𐑨").unwrap(),
             "Paris Paris",
+        );
+    }
+
+    #[test]
+    fn namer_dot() {
+        assert_eq!(
+            &transliterate_to_string("Paris Paris").unwrap(),
+            "·𐑐𐑨 ·𐑐𐑨",
         );
     }
 
