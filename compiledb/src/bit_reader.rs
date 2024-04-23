@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#[derive(Clone)]
 pub struct BitReader<'a> {
     slice: &'a [u8],
     queue: u8,
