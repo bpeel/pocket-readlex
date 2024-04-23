@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+mod pos_table;
+
 pub static NAMES: [&'static str; 40] = [
     "AJ0", "AJC", "AJS", "AT0", "AV0", "AVP", "AVQ", "CJC", "CJS",
     "CJT", "CRD", "DPS", "DT0", "DTQ", "EX0", "ITJ", "NN0", "NN1",
@@ -22,7 +24,14 @@ pub static NAMES: [&'static str; 40] = [
     "VVN", "VVZ", "XX0", "ZZ0",
 ];
 
+pub use pos_table::N_POS;
+
 pub const PNP: u8 = 22;
+pub const START_OF_SENTENCE: u8 = N_POS as u8 - 1;
+
+pub fn pair_priority(left: u8, right: u8) -> u8 {
+    pos_table::PAIR_PRIORITIES[left as usize * N_POS + right as usize]
+}
 
 #[cfg(test)]
 mod test {
