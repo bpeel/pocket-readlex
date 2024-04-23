@@ -82,8 +82,8 @@ POS_NUMBERS = [
     "AJ0", "AJC", "AJS", "AT0", "AV0", "AVP", "AVQ", "CJC", "CJS",
     "CJT", "CRD", "DPS", "DT0", "DTQ", "EX0", "ITJ", "NN0", "NN1",
     "NN2", "NP0", "ORD", "PNI", "PNP", "PNQ", "PNX", "POS", "PRE",
-    "PRF", "PRP", "TO0", "UNC", "VM0", "VVB", "VVD", "VVG", "VVI",
-    "VVN", "VVZ", "XX0", "ZZ0",
+    "PRF", "PRP", "TO0", "UNC", "VM0", "VVB", "VVD", "VVG", "VVN",
+    "VVZ", "XX0", "ZZ0",
 ]
 
 N_POS = len(POS_NUMBERS) + 1

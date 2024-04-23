@@ -51,6 +51,36 @@ struct Entry {
     freq: u32,
 }
 
+struct FilteredEntry<'a> {
+    latin: &'a str,
+    shavian: &'a str,
+    pos: Vec<u8>,
+    ipa: &'a str,
+    var: &'a str,
+    freq: u32,
+}
+
+impl<'a> FilteredEntry<'a> {
+    fn new(entry: &'a Entry, pos: Vec<u8>) -> FilteredEntry<'a> {
+        FilteredEntry {
+            latin: &entry.latin,
+            shavian: &entry.shavian,
+            pos,
+            ipa: &entry.ipa,
+            var: &entry.var,
+            freq: entry.freq,
+        }
+    }
+
+    fn matches(&self, entry: &Entry, pos: &Vec<u8>) -> bool {
+        self.latin == entry.latin &&
+            self.shavian == entry.shavian &&
+            &self.pos == pos &&
+            self.ipa == entry.ipa &&
+            self.var == entry.var
+    }
+}
+
 struct ArticleEntry<'a> {
     latin: &'a str,
     pos: Vec<u8>,
@@ -63,7 +93,7 @@ struct ArticleVariant<'a> {
     var: u8,
 }
 
-static PARTS_OF_SPEECH_REMAP: [(&'static str, &'static str); 19] = [
+static PARTS_OF_SPEECH_REMAP: [(&'static str, &'static str); 20] = [
     // I’m not sure if this is a mistake in the ReadLex. The code
     // isn’t mentioned in the BNC Basic Tagset and it only appears
     // once in the ReadLex.
@@ -73,21 +103,26 @@ static PARTS_OF_SPEECH_REMAP: [(&'static str, &'static str); 19] = [
     ("VBB", "VVB"),
     ("VBD", "VVD"),
     ("VBG", "VVG"),
-    ("VBI", "VVI"),
+    ("VBI", "VVB"),
     ("VBN", "VVN"),
     ("VBZ", "VVZ"),
     ("VDB", "VVB"),
     ("VDD", "VVD"),
     ("VDG", "VVG"),
-    ("VDI", "VVI"),
+    ("VDI", "VVB"),
     ("VDN", "VVN"),
     ("VDZ", "VVZ"),
     ("VHB", "VVB"),
     ("VHD", "VVD"),
     ("VHG", "VVG"),
-    ("VHI", "VVI"),
+    ("VHI", "VVB"),
     ("VHN", "VVN"),
     ("VHZ", "VVZ"),
+    // The ReadLex seems to have the “finite base form” and the
+    // “infinitive form”, but they are both presented as just “verb”
+    // and only one of them is shown. Let’s filter the VVI form and
+    // only ever use the VVB form.
+    ("VVI", "VVB"),
 ];
 
 static VARIATIONS: [&'static str; 6] = [
@@ -148,45 +183,38 @@ fn remap_pos(pos: &str) -> Option<u8> {
         .map(|pos| pos as u8)
 }
 
-// Iterator adaptor to help filter out certain entries
-struct EntryFilter<'a, T: Iterator<Item = &'a Entry>> {
-    had_verb: bool,
-    inner: T,
-}
+fn filter_entries<'a>(
+    entries_in: &'a [Entry],
+) -> Result<Vec<FilteredEntry<'a>>, ()> {
+    let mut entries_out = Vec::<FilteredEntry>::new();
 
-impl<'a, T: Iterator<Item = &'a Entry>> EntryFilter<'a, T> {
-    fn new(inner: T) -> Self {
-        EntryFilter {
-            had_verb: false,
-            inner,
-        }
-    }
-}
+    for new_entry in entries_in.iter() {
+        let Some(pos) = lookup_pos(&new_entry.pos)
+        else {
+            eprintln!(
+                "unknown part of speech “{}” for “{}/{}”",
+                new_entry.pos,
+                new_entry.latin,
+                new_entry.shavian,
+            );
+            return Err(());
+        };
 
-impl<'a, T: Iterator<Item = &'a Entry>> Iterator for EntryFilter<'a, T> {
-    type Item = &'a Entry;
-
-    fn next(&mut self) -> Option<&'a Entry> {
-        loop {
-            if let Some(entry) = self.inner.next() {
-                // The ReadLex seems to have the “finite base form”
-                // and the “infinitive form”, but they are both
-                // presented as just “verb” and only one of them is
-                // shown. Let’s filter the second one out in the same
-                // way.
-                if entry.pos == "VVB" || entry.pos == "VVI" {
-                    if self.had_verb {
-                        continue;
+        'find_entry: {
+            for old_entry in entries_out.iter_mut() {
+                if old_entry.matches(new_entry, &pos) {
+                    if old_entry.freq < new_entry.freq {
+                        old_entry.freq = new_entry.freq;
                     }
-                    self.had_verb = true;
+                    break 'find_entry;
                 }
-
-                break Some(entry);
-            } else {
-                break None;
             }
+
+            entries_out.push(FilteredEntry::new(&new_entry, pos));
         }
     }
+
+    Ok(entries_out)
 }
 
 fn build_trie<P: AsRef<Path>>(
@@ -197,22 +225,11 @@ fn build_trie<P: AsRef<Path>>(
     let mut builder = TrieBuilder::new();
 
     for (article_num, &key) in keys.iter().enumerate() {
-        for entry in EntryFilter::new(map[key].iter()) {
-            let Some(pos) = remap_pos(&entry.pos)
-            else {
-                eprintln!(
-                    "unknown part of speech “{}” for “{}/{}”",
-                    entry.pos,
-                    entry.latin,
-                    entry.shavian,
-                );
-                return Err(());
-            };
-
+        for entry in filter_entries(&map[key])?.iter() {
             builder.add_word(
                 &entry.shavian,
                 &entry.latin,
-                pos as u8,
+                entry.pos[0],
                 article_num as u16,
                 // Sort by decreasing frequency
                 u32::MAX - entry.freq,
@@ -247,7 +264,7 @@ fn lookup_var(var: &str) -> std::io::Result<u8> {
     }
 }
 
-fn lookup_pos(pos: &str) -> std::io::Result<Vec<u8>> {
+fn lookup_pos(pos: &str) -> Option<Vec<u8>> {
     let mut result = Vec::<u8>::new();
 
     for pos in pos.split('+') {
@@ -255,16 +272,11 @@ fn lookup_pos(pos: &str) -> std::io::Result<Vec<u8>> {
             Some(pos) => {
                 result.push(pos);
             },
-            None => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("unknown part of speech: {}", pos),
-                ));
-            },
+            None => return None,
         }
     }
 
-    Ok(result)
+    Some(result)
 }
 
 fn remap_ipa(ipa: &str) -> String {
@@ -283,18 +295,16 @@ fn remap_ipa(ipa: &str) -> String {
 fn combine_variants(article: &[Entry]) -> std::io::Result<Vec<ArticleEntry>> {
     let mut entries = Vec::<ArticleEntry>::new();
 
-    for entry in EntryFilter::new(article.iter()) {
+    for entry in filter_entries(article).unwrap().iter() {
         let variant = ArticleVariant {
-            shavian: &entry.shavian,
-            ipa: remap_ipa(&entry.ipa),
-            var: lookup_var(&entry.var)?,
+            shavian: entry.shavian,
+            ipa: remap_ipa(entry.ipa),
+            var: lookup_var(entry.var)?,
         };
-
-        let pos = lookup_pos(&entry.pos)?;
 
         if let Some(last_entry) = entries.last_mut() {
             if last_entry.latin == entry.latin
-                && last_entry.pos == pos
+                && last_entry.pos == entry.pos
             {
                 last_entry.variants.push(variant);
                 continue;
@@ -303,7 +313,7 @@ fn combine_variants(article: &[Entry]) -> std::io::Result<Vec<ArticleEntry>> {
 
         entries.push(ArticleEntry {
             latin: &entry.latin,
-            pos,
+            pos: entry.pos.clone(),
             variants: vec![variant],
         });
     }

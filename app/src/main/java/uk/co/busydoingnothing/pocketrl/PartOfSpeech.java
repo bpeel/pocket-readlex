@@ -53,7 +53,6 @@ public class PartOfSpeech {
         "verb", // VVB
         "past tense", // VVD
         "present participle", // VVG
-        "verb", // VVI
         "past participle", // VVN
         "3rd person singular", // VVZ
         "negative participle", // XX0
