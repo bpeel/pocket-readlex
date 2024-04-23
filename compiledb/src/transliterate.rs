@@ -17,6 +17,7 @@
 mod bit_reader;
 mod dictionary;
 mod transliteration;
+mod parts_of_speech;
 
 use std::process::ExitCode;
 use clap::Parser;

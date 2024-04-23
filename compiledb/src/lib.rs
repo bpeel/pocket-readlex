@@ -18,3 +18,4 @@ mod bit_reader;
 mod dictionary;
 mod transliteration;
 mod jni_wrapper;
+mod parts_of_speech;

@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::dictionary;
+use super::parts_of_speech;
 
 use std::fmt;
 use fmt::Write;
@@ -65,8 +66,20 @@ impl<'a, I: IntoIterator<Item = char>, O: Write> Transliterater<'a, I, O> {
 
     fn write_path(
         &mut self,
-        path: dictionary::PathWalker<'a>,
+        mut path: dictionary::PathWalker<'a>,
+        capitalize: bool,
     ) -> Result<(), Error> {
+        if capitalize {
+            let Some(ch) = path.next()
+            else {
+                return Ok(());
+            };
+
+            for ch in ch?.to_uppercase() {
+                self.output.write_char(ch)?;
+            }
+        }
+
         for ch in path {
             let ch = ch?;
 
@@ -81,7 +94,21 @@ impl<'a, I: IntoIterator<Item = char>, O: Write> Transliterater<'a, I, O> {
             self.dictionary,
             variant_pos,
         )?;
-        self.write_path(variant.translation)
+
+        let capitalize = if variant.payload == parts_of_speech::PNP {
+            // Capitalise “I” on its own when it’s a pronoun
+            let mut translation = variant.translation.clone();
+            translation.next()
+                .map(|first_letter| {
+                    Ok::<_, Error>(first_letter? == 'i'
+                                   && translation.next().is_none())
+                })
+                .unwrap_or(Ok(false))?
+        } else {
+            false
+        };
+
+        self.write_path(variant.translation, capitalize)
     }
 
     fn write_hyphenated_parts(&mut self, word: &str) -> Result<(), Error> {
@@ -171,7 +198,7 @@ pub fn transliterate<I: IntoIterator<Item = char>, O: Write>(
 mod test {
     use super::*;
 
-    static DICTIONARY: [u8; 58] = [
+    static DICTIONARY: [u8; 88] = [
         // Length
         0, 0, 0, 0,
         7, b'a', 0, b'\0', 0, 0, 0, 1,
@@ -179,7 +206,12 @@ mod test {
         7, b'c', 0, b'\0', 0, 0, 0, 3,
         17, b'd', 5, b'\0', 0, 0, 0, 2,
         0, b'\'', 0, b'b', 0, b'\0', 0, 0, 0, 1,
-        0, b'e', 0, b'-', 0, b'f', 0, b'\0', 0, 0, 0, 1,
+        11, b'e', 0, b'-', 0, b'f', 0, b'\0', 0, 0, 0, 1,
+        7, b'i', 0, b'\0', 0, 0, 0, 6,
+        // 𐑦 -> i, not a pronoun
+        10, 0xf0, 0x90, 0x91, 0xa6, 0, b'\0', parts_of_speech::PNP + 1, 0, 0, 5,
+        // 𐑲 -> i, pronoun
+        0, 0xf0, 0x90, 0x91, 0xb2, 0, b'\0', parts_of_speech::PNP, 0, 0, 5,
     ];
 
     fn transliterate_to_string(input: &str) -> Result<String, Error> {
@@ -212,5 +244,13 @@ mod test {
         assert_eq!(&transliterate_to_string("d’ b").unwrap(), "c’ a");
         assert_eq!(&transliterate_to_string("d'").unwrap(), "c'");
         assert_eq!(&transliterate_to_string("d’").unwrap(), "c’");
+    }
+
+    #[test]
+    fn first_person_pronoun() {
+        // The “I” should be capitialised
+        assert_eq!(&transliterate_to_string("𐑲").unwrap(), "I");
+        // … but not when it’s not a pronoun
+        assert_eq!(&transliterate_to_string("𐑦").unwrap(), "i");
     }
 }
