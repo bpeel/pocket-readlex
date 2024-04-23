@@ -27,6 +27,7 @@ pub static NAMES: [&'static str; 39] = [
 pub use pos_table::N_POS;
 
 pub const PNP: u8 = 22;
+pub const NP0: u8 = 19;
 pub const START_OF_SENTENCE: u8 = N_POS as u8 - 1;
 
 pub fn pair_priority(left: u8, right: u8) -> u8 {
@@ -39,6 +40,7 @@ mod test {
 
     #[test]
     fn constants() {
+        assert_eq!(NAMES[NP0 as usize], "NP0");
         assert_eq!(NAMES[PNP as usize], "PNP");
     }
 }

@@ -102,6 +102,10 @@ impl<'a, I: IntoIterator<Item = char>, O: Write> Transliterater<'a, I, O> {
             }
         }
 
+        if variant.payload == parts_of_speech::NP0 {
+            return Ok(true)
+        }
+
         if variant.payload == parts_of_speech::PNP {
             // Capitalise “I” on its own when it’s a pronoun
             let mut translation = variant.translation.clone();
@@ -293,7 +297,7 @@ mod test {
 
     const VVB: u8 = 32;
 
-    static DICTIONARY: [u8; 100] = [
+    static DICTIONARY: [u8; 132] = [
         // Length
         0, 0, 0, 0,
         7, b'a', 0, b'\0', 0, 0, 0, 1,
@@ -306,6 +310,10 @@ mod test {
         11, b'j', 0, b'\0',
         0x80 | parts_of_speech::PNP, 0, 0, 0,
         VVB, 0, 0, 1,
+        15, b'p', 0, b'a', 0, b'r', 0, b'i', 0, b's', 0, b'\0',
+        parts_of_speech::NP0, 0, 0, 8,
+        15, 0xf0, 0x90, 0x91, 0x90, 0, 0xf0, 0x90, 0x91, 0xa8, 0, b'\0',
+        parts_of_speech::NP0, 0, 0, 7,
         // 𐑦 -> i, not a pronoun
         10, 0xf0, 0x90, 0x91, 0xa6, 0, b'\0', VVB, 0, 0, 5,
         // 𐑲 -> i, pronoun
@@ -357,6 +365,14 @@ mod test {
         assert_eq!(
             &transliterate_to_string("a c a.c c. a c").unwrap(),
             "B d b.d d. B d",
+        );
+    }
+
+    #[test]
+    fn capitalize_proper_nouns() {
+        assert_eq!(
+            &transliterate_to_string("𐑐𐑨 𐑐𐑨").unwrap(),
+            "Paris Paris",
         );
     }
 
