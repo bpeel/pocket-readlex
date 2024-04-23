@@ -252,12 +252,22 @@ impl<'a, I: IntoIterator<Item = char>, O: Write> Transliterater<'a, I, O> {
                     continue;
                 }
 
+                let was_empty = self.buf.is_empty();
+
                 self.flush_buf()?;
 
-                self.output.write_char(ch)?;
+                // Skip namer dots at the start of words when the next
+                // letter is a Shavian letter.
+                if ch != '·'
+                    || !was_empty
+                    || !next_is_shavian(&mut self.input)
+                {
+                    self.output.write_char(ch)?;
 
-                if ch == '.' && !next_is_alphabetic(&mut self.input) {
-                    self.last_pos = Some(parts_of_speech::START_OF_SENTENCE);
+                    if ch == '.' && !next_is_alphabetic(&mut self.input) {
+                        self.last_pos =
+                            Some(parts_of_speech::START_OF_SENTENCE);
+                    }
                 }
             }
         }
@@ -296,6 +306,14 @@ fn next_is_alphabetic<I>(iter: &mut std::iter::Peekable<I>) -> bool
 
 fn is_shavian(ch: char) -> bool {
     ch >= '𐑐' && ch <= '𐑿'
+}
+
+fn next_is_shavian<I>(iter: &mut std::iter::Peekable<I>) -> bool
+    where I: Iterator<Item = char>
+{
+    iter.peek()
+        .map(|&next_ch| is_shavian(next_ch))
+        .unwrap_or(false)
 }
 
 pub fn transliterate<I: IntoIterator<Item = char>, O: Write>(
@@ -396,6 +414,18 @@ mod test {
         assert_eq!(
             &transliterate_to_string("Paris Paris").unwrap(),
             "·𐑐𐑨 ·𐑐𐑨",
+        );
+        assert_eq!(
+            &transliterate_to_string("·𐑐𐑨 ·𐑐𐑨").unwrap(),
+            "Paris Paris",
+        );
+        assert_eq!(
+            &transliterate_to_string("𐑐𐑨·𐑐𐑨").unwrap(),
+            "Paris·Paris",
+        );
+        assert_eq!(
+            &transliterate_to_string("Paris·𐑐𐑨").unwrap(),
+            "·𐑐𐑨·Paris",
         );
     }
 
