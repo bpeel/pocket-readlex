@@ -21,3 +21,15 @@ pub static NAMES: [&'static str; 40] = [
     "PRF", "PRP", "TO0", "UNC", "VM0", "VVB", "VVD", "VVG", "VVI",
     "VVN", "VVZ", "XX0", "ZZ0",
 ];
+
+pub const PNP: u8 = 22;
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn constants() {
+        assert_eq!(NAMES[PNP as usize], "PNP");
+    }
+}
