@@ -138,6 +138,7 @@ fn skip_nodes(buf: &[u8], n_nodes: usize) -> Result<usize, Error> {
     Ok(pos)
 }
 
+#[derive(Clone)]
 pub struct PathWalker<'a> {
     buf: &'a [u8],
     node_pos: usize,
