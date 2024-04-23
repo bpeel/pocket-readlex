@@ -208,6 +208,7 @@ impl<'a> Iterator for PathWalker<'a> {
     }
 }
 
+#[derive(Clone)]
 pub struct Variant<'a> {
     pos: usize,
     is_last: bool,
