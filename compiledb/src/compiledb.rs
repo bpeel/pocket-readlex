@@ -16,6 +16,7 @@
 
 mod trie_builder;
 mod bit_writer;
+mod parts_of_speech;
 
 use std::process::ExitCode;
 use serde::Deserialize;
@@ -61,14 +62,6 @@ struct ArticleVariant<'a> {
     ipa: String,
     var: u8,
 }
-
-static PARTS_OF_SPEECH: [&'static str; 40] = [
-    "AJ0", "AJC", "AJS", "AT0", "AV0", "AVP", "AVQ", "CJC", "CJS",
-    "CJT", "CRD", "DPS", "DT0", "DTQ", "EX0", "ITJ", "NN0", "NN1",
-    "NN2", "NP0", "ORD", "PNI", "PNP", "PNQ", "PNX", "POS", "PRE",
-    "PRF", "PRP", "TO0", "UNC", "VM0", "VVB", "VVD", "VVG", "VVI",
-    "VVN", "VVZ", "XX0", "ZZ0",
-];
 
 static PARTS_OF_SPEECH_REMAP: [(&'static str, &'static str); 19] = [
     // I’m not sure if this is a mistake in the ReadLex. The code
@@ -150,7 +143,7 @@ fn remap_pos(pos: &str) -> Option<u8> {
         .map(|map_index| PARTS_OF_SPEECH_REMAP[map_index].1)
         .unwrap_or(first_pos);
 
-    PARTS_OF_SPEECH.binary_search(&pos)
+    parts_of_speech::NAMES.binary_search(&pos)
         .ok()
         .map(|pos| pos as u8)
 }
