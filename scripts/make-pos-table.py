@@ -26,6 +26,7 @@ import re
 
 
 POS_REMAP = {
+    "*": "XX0",
     "AT": "AT0",
     "BE": "VVB",
     "BED": "VVD",
@@ -56,6 +57,8 @@ POS_REMAP = {
     "NN": "NN1",
     "NNS": "NN2",
     "NP": "NP0",
+    "OD": "ORD",
+    "PN": "PNI",
     "PPL": "PNX",
     "PPLS": "PNX",
     "PPO": "PNP",
@@ -66,12 +69,15 @@ POS_REMAP = {
     "RB": "AV0",
     "RBR": "AV0",
     "RBT": "AV0",
+    "RP": "AVP",
     "TO": "TO0",
+    "UH": "ITJ",
     "VB": "VVB",
     "VBD": "VVD",
     "VBG": "VVG",
     "VBN": "VVN",
     "VBZ": "VVZ",
+    "WDT": "DTQ",
     "WP$": "PNQ",
     "WPO": "PNQ",
     "WPS": "PNQ",
