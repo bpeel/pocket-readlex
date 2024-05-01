@@ -22,6 +22,7 @@ import android.content.ClipData;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.AssetManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -284,6 +285,24 @@ public class ArticleActivity extends AppCompatActivity
         clipboard.setPrimaryClip(ClipData.newPlainText(label, text));
     }
 
+    private void searchWiktionary(String word)
+    {
+        StringBuilder wordBuilder = new StringBuilder();
+
+        Uri uri = new Uri.Builder()
+            .scheme("https")
+            .encodedPath("//en.wiktionary.org/wiki/Special:Search")
+            .appendQueryParameter("search", word)
+            .build();
+        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+
+        try {
+            startActivity(intent);
+        } catch (android.content.ActivityNotFoundException e) {
+            Log.w(TAG, "Failed to start activity: " + e.getMessage());
+        }
+    }
+
     @Override
     public boolean onContextItemSelected(MenuItem item)
     {
@@ -307,6 +326,10 @@ public class ArticleActivity extends AppCompatActivity
             case R.id.menu_copy_ipa:
                 copyText(getResources().getText(R.string.ipa_label),
                          variantInfo.ipa);
+                return true;
+
+            case R.id.menu_wiktionary:
+                searchWiktionary(variantInfo.latin.toString());
                 return true;
             }
         }

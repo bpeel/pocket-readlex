@@ -25,4 +25,6 @@
         android:title="@string/menu_copy_shavian" />
   <item android:id="@+id/menu_copy_ipa"
         android:title="@string/menu_copy_ipa" />
+  <item android:id="@+id/menu_wiktionary"
+        android:title="@string/menu_wiktionary" />
 </menu>

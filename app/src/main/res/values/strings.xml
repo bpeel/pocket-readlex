@@ -32,6 +32,7 @@
   <string name="menu_copy_latin">Copy Latin text</string>
   <string name="menu_copy_shavian">Copy Shavian text</string>
   <string name="menu_copy_ipa">Copy IPA</string>
+  <string name="menu_wiktionary">Search Wiktionary</string>
   <string name="latin_label">Latin</string>
   <string name="shavian_label">Shavian</string>
   <string name="ipa_label">IPA</string>
