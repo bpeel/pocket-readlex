@@ -264,7 +264,9 @@ impl<'a, I: IntoIterator<Item = char>, O: Write> Transliterator<'a, I, O> {
                 {
                     self.output.write_char(ch)?;
 
-                    if ch == '.' && !next_is_alphabetic(&mut self.input) {
+                    if (ch == '.' || ch == '?')
+                        && !next_is_alphabetic(&mut self.input)
+                    {
                         self.last_pos =
                             Some(parts_of_speech::START_OF_SENTENCE);
                     }
@@ -398,6 +400,10 @@ mod test {
         assert_eq!(
             &transliterate_to_string("a c a.c c. a c").unwrap(),
             "B d b.d d. B d",
+        );
+        assert_eq!(
+            &transliterate_to_string("a c a?c c? a c").unwrap(),
+            "B d b?d d? B d",
         );
     }
 
