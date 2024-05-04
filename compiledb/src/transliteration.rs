@@ -48,7 +48,7 @@ impl From<fmt::Error> for Error {
     }
 }
 
-struct Transliterater<'a, I: IntoIterator<Item = char>, O: Write> {
+struct Transliterator<'a, I: IntoIterator<Item = char>, O: Write> {
     dictionary: &'a [u8],
     input: std::iter::Peekable<I::IntoIter>,
     output: O,
@@ -56,9 +56,9 @@ struct Transliterater<'a, I: IntoIterator<Item = char>, O: Write> {
     last_pos: Option<u8>,
 }
 
-impl<'a, I: IntoIterator<Item = char>, O: Write> Transliterater<'a, I, O> {
+impl<'a, I: IntoIterator<Item = char>, O: Write> Transliterator<'a, I, O> {
     fn new(dictionary: &'a [u8], input: I, output: O) -> Self {
-        Transliterater {
+        Transliterator {
             dictionary,
             input: input.into_iter().peekable(),
             output,
@@ -321,7 +321,7 @@ pub fn transliterate<I: IntoIterator<Item = char>, O: Write>(
     input: I,
     output: O,
 ) -> Result<(), Error> {
-    Transliterater::new(dictionary, input, output).run()
+    Transliterator::new(dictionary, input, output).run()
 }
 
 #[cfg(test)]
