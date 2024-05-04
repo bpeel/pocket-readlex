@@ -51,3 +51,25 @@ Release mode:
 You should then have the final package in either
 `app/build/outputs/apk/debug/` or `app/build/outputs/apk/release/`
 depending on the build type.
+
+Using the transliterator on the command line
+--------------------------------------------
+
+The transliterator in the app can also be used on the terminal. Make
+sure you check out the git submodules to get the ReadLex repo as
+above, then you first need to build the dictionary for the
+transliterator to use as follows:
+
+```bash
+cd compiledb
+cargo run --release --bin=compiledb -- \
+    -i ../extern/readlex/readlex.json -o ../dictionary.bin
+```
+
+Then you can transliterate like this:
+
+```bash
+cargo run --release --bin=transliterate -- ../dictionary.bin \
+    < my-document.txt \
+    > transliterated.txt
+```
