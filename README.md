@@ -6,6 +6,13 @@ Pocket ReadLex is an Android app containing a portable version of the
 dictionary for the Shavian alphabet. It contains all of the dictionary
 data in the package so the app does not need to access the internet.
 
+[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png"
+     alt="Get it on F-Droid"
+     height="80">](https://f-droid.org/packages/uk.co.busydoingnothing.pocketrl/)
+[<img src="https://play.google.com/intl/en_us/badges/images/generic/en-play-badge.png"
+     alt="Get it on Google Play"
+     height="80">](https://play.google.com/store/apps/details?id=uk.co.busydoingnothing.pocketrl)
+
 Building
 --------
 
